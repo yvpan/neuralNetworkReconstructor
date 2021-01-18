@@ -14,7 +14,7 @@ zz(relative error)	Vertical distances from the surface to the vertices. 		Loss =
 tt(deg)			Zenith angles from the station center to the vertices.		Loss = mse
 cos(pp), sin(pp)	Azimuth angles from the station center to the vertices. 
 			Recalculated from cos(pp) and sin(pp). 				Loss = mse
-ze(deg)		Zenith angles pointing back to the neutrino zeniths.		Loss = mse
+ze(deg)			Zenith angles pointing back to the neutrino zeniths.		Loss = mse
 cos(az), sin(az)	Azimuth angles pointing back to the neutrino azimuths.
 			Recalculated from cos(az) and sin(az).				Loss = mse
 sh(log10(eV))		Log10(shower energies).						Loss = mse

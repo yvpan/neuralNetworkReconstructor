@@ -184,20 +184,21 @@ for i in range(2, len(sys.argv) - 2):
     launch_vectors = np.append(launch_vectors, np.array(inFile['station_101']['launch_vectors']), axis = 0)
     polarization = np.append(polarization, np.array(inFile['station_101']['polarization']), axis = 0)
     Vrms = inFile.attrs['Vrms']
-channelNum = 16
+strNum = 4
+channelPerStr = 4
 evtNum = len(event_ids)
 shower_axis = -1.0 * hp.spherical_to_cartesian(zeniths, azimuths)
-viewing_angles_dir = np.zeros((evtNum, 16))
-viewing_angles_ref = np.zeros((evtNum, 16))
+viewing_angles_dir = np.zeros((evtNum, strNum * channelPerStr))
+viewing_angles_ref = np.zeros((evtNum, strNum * channelPerStr))
 viewing_angles_dir[:, 0] = np.array([hp.get_angle(x, y) for x, y in zip(shower_axis, launch_vectors[:, 0, 0])])
 viewing_angles_ref[:, 0] = np.array([hp.get_angle(x, y) for x, y in zip(shower_axis, launch_vectors[:, 0, 1])])
-for i in range(1, channelNum):
+for i in range(1, strNum * channelPerStr):
     viewing_angles_dir[:, i] = np.array([hp.get_angle(x, y) for x, y in zip(shower_axis, launch_vectors[:, i, 0])])
     viewing_angles_ref[:, i] = np.array([hp.get_angle(x, y) for x, y in zip(shower_axis, launch_vectors[:, i, 1])])
-viewing_angles_dir = viewing_angles_dir.reshape(viewing_angles_dir.shape[0], 4, 4)
-viewing_angles_ref = viewing_angles_ref.reshape(viewing_angles_ref.shape[0], 4, 4)
-cone_angles_dir = np.zeros((evtNum, 16))
-cone_angles_ref = np.zeros((evtNum, 16))
+viewing_angles_dir = viewing_angles_dir.reshape(viewing_angles_dir.shape[0], channelPerStr, strNum)
+viewing_angles_ref = viewing_angles_ref.reshape(viewing_angles_ref.shape[0], channelPerStr, strNum)
+cone_angles_dir = np.zeros((evtNum, strNum * channelPerStr))
+cone_angles_ref = np.zeros((evtNum, strNum * channelPerStr))
 zHat = np.array([0., 0., 1.])
 launch_vectors_dir = launch_vectors[:, 0, 0, :]
 launch_vectors_ref = launch_vectors[:, 0, 1, :]
@@ -211,7 +212,7 @@ cone_angles_dir[:, 0] = np.arccos(np.sum(launchOnCone_dir * zOnCone, axis = 1)) 
 launchOnCone_ref = launch_vectors_ref - shower_axis * np.sum(launch_vectors_ref * shower_axis, axis = 1).reshape((shower_axis.shape[0], 1))
 launchOnCone_ref = launchOnCone_ref / np.linalg.norm(launchOnCone_ref, axis = 1).reshape((launchOnCone_ref.shape[0], 1))
 cone_angles_ref[:, 0] = np.arccos(np.sum(launchOnCone_ref * zOnCone, axis = 1)) * np.sign(np.sum(launchOnCone_ref * yOnCone, axis = 1))
-for i in range(1, channelNum):
+for i in range(1, strNum * channelPerStr):
     launch_vectors_dir = launch_vectors[:, i, 0, :]
     launch_vectors_ref = launch_vectors[:, i, 1, :]
     yOnCone = np.cross(zHat, shower_axis)
@@ -224,8 +225,8 @@ for i in range(1, channelNum):
     launchOnCone_ref = launch_vectors_ref - shower_axis * np.sum(launch_vectors_ref * shower_axis, axis = 1).reshape((shower_axis.shape[0], 1))
     launchOnCone_ref = launchOnCone_ref / np.linalg.norm(launchOnCone_ref, axis = 1).reshape((launchOnCone_ref.shape[0], 1))
     cone_angles_ref[:, i] = np.arccos(np.sum(launchOnCone_ref * zOnCone, axis = 1)) * np.sign(np.sum(launchOnCone_ref * yOnCone, axis = 1))
-cone_angles_dir = cone_angles_dir.reshape(cone_angles_dir.shape[0], 4, 4)
-cone_angles_ref = cone_angles_ref.reshape(cone_angles_ref.shape[0], 4, 4)
+cone_angles_dir = cone_angles_dir.reshape(cone_angles_dir.shape[0], channelPerStr, strNum)
+cone_angles_ref = cone_angles_ref.reshape(cone_angles_ref.shape[0], channelPerStr, strNum)
 ice = medium.southpole_2015()
 n_index = np.array([ice.get_index_of_refraction(x) for x in np.array([xx, yy, zz]).T])
 cherenkov = np.arccos(1. / n_index)
@@ -241,7 +242,7 @@ pp = np.arctan2(yy, xx)
 pp = np.where(pp < 0, pp + 2 * np.pi, pp)
 dd = np.sqrt(np.square(rr) + np.square(zz - 200.))
 rt, rp = hp.cartesian_to_spherical(receive_vectors[:, :, 0, 0].flatten(), receive_vectors[:, :, 0, 1].flatten(), receive_vectors[:, :, 0, 2].flatten())#receive_vectors[evt, chan, dir/ref, xyz]
-rt = -1. * np.mean(rt.reshape(receive_vectors.shape[0], channelNum), axis = 1) + np.pi / 2.
+rt = -1. * np.mean(rt.reshape(receive_vectors.shape[0], strNum * channelPerStr), axis = 1) + np.pi / 2.
 cos = xx / rr
 sin = yy / rr
 cosAz = np.cos(azimuths)
@@ -249,12 +250,12 @@ sinAz = np.sin(azimuths)
 
 #nn data cleaning
 print("Data cleaning ...")
-travel_times = travel_times.reshape(travel_times.shape[0] * 16, 2)
+travel_times = travel_times.reshape(travel_times.shape[0] * strNum * channelPerStr, 2)
 Filter = travel_times[:, 0] < travel_times[:, 1]
 travel_times_dir = np.where(Filter, travel_times[:, 0], travel_times[:, 1])
 travel_times_ref = np.where(Filter, travel_times[:, 1], travel_times[:, 0])
-travel_times_dir = travel_times_dir.reshape(int(travel_times_dir.shape[0] / 16), 4, 4)
-travel_times_ref = travel_times_ref.reshape(int(travel_times_ref.shape[0] / 16), 4, 4)
+travel_times_dir = travel_times_dir.reshape(int(travel_times_dir.shape[0] / strNum / channelPerStr), channelPerStr, strNum)
+travel_times_ref = travel_times_ref.reshape(int(travel_times_ref.shape[0] / strNum / channelPerStr), channelPerStr, strNum)
 chan0TimeDir = travel_times_dir[:, 0, 0].reshape((travel_times_dir.shape[0], 1, 1)) + 100.
 travel_times_dir -= chan0TimeDir
 travel_times_dir = normalize(travel_times_dir)
@@ -262,23 +263,24 @@ travel_times_dir_mask = (~np.isnan(travel_times_dir)).astype(float)
 travel_times_ref -= chan0TimeDir
 travel_times_ref = normalize(travel_times_ref)
 travel_times_ref_mask = (~np.isnan(travel_times_ref)).astype(float)
-max_amp_ray_solution = max_amp_ray_solution.reshape(max_amp_ray_solution.shape[0] * 16, 2)
+max_amp_ray_solution = max_amp_ray_solution.reshape(max_amp_ray_solution.shape[0] * strNum * channelPerStr, 2)
 max_amp_ray_solution_dir = np.where(Filter, max_amp_ray_solution[:, 0], max_amp_ray_solution[:, 1])
 max_amp_ray_solution_ref = np.where(Filter, max_amp_ray_solution[:, 1], max_amp_ray_solution[:, 0])
-max_amp_ray_solution_dir = max_amp_ray_solution_dir.reshape(int(max_amp_ray_solution_dir.shape[0] / 16), 4, 4)
-max_amp_ray_solution_ref = max_amp_ray_solution_ref.reshape(int(max_amp_ray_solution_ref.shape[0] / 16), 4, 4)
+max_amp_ray_solution_dir = max_amp_ray_solution_dir.reshape(int(max_amp_ray_solution_dir.shape[0] / strNum / channelPerStr), channelPerStr, strNum)
+max_amp_ray_solution_ref = max_amp_ray_solution_ref.reshape(int(max_amp_ray_solution_ref.shape[0] / strNum / channelPerStr), channelPerStr, strNum)
 max_amp_ray_solution_dir = normalize(max_amp_ray_solution_dir)
 max_amp_ray_solution_dir_mask = (~np.isnan(max_amp_ray_solution_dir)).astype(float)
 max_amp_ray_solution_ref = normalize(max_amp_ray_solution_ref)
 max_amp_ray_solution_ref_mask = (~np.isnan(max_amp_ray_solution_ref)).astype(float)
-ratio = ratio.reshape(ratio.shape[0] * 16, 2)
+ratio = ratio.reshape(ratio.shape[0] * strNum * channelPerStr, 2)
 ratio_dir = np.where(Filter, ratio[:, 0], ratio[:, 1])
 ratio_ref = np.where(Filter, ratio[:, 1], ratio[:, 0])
-ratio_dir = ratio_dir.reshape(int(ratio_dir.shape[0] / 16), 4, 4)
-ratio_ref = ratio_ref.reshape(int(ratio_ref.shape[0] / 16), 4, 4)
-Filter = Filter.reshape(int(Filter.shape[0] / 16), 16)
+ratio_dir = ratio_dir.reshape(int(ratio_dir.shape[0] / strNum / channelPerStr), channelPerStr, strNum)
+ratio_ref = ratio_ref.reshape(int(ratio_ref.shape[0] / strNum / channelPerStr), channelPerStr, strNum)
+Filter = Filter.reshape(int(Filter.shape[0] / strNum / channelPerStr), strNum * channelPerStr)
 viewAngle_dir, viewAngle_ref = np.where(Filter[:, 0], viewing_angles_dir[:, 0, 0], viewing_angles_ref[:, 0, 0]).copy(), np.where(Filter[:, 0], viewing_angles_ref[:, 0, 0], viewing_angles_dir[:, 0, 0]).copy()
 coneAngle_dir, coneAngle_ref = np.where(Filter[:, 0], cone_angles_dir[:, 0, 0], cone_angles_ref[:, 0, 0]).copy(), np.where(Filter[:, 0], cone_angles_ref[:, 0, 0], cone_angles_dir[:, 0, 0]).copy()
+#inputs
 x = np.stack((travel_times_dir, travel_times_ref, max_amp_ray_solution_dir, max_amp_ray_solution_ref), axis = 3)
 y = np.vstack((rr, zz, dd, pp, tt, cos, sin, azimuths, zeniths, energies, cosAz, sinAz, showerEnergies, xx, yy, flavors, viewAngle_dir, viewAngle_ref, coneAngle_dir, coneAngle_ref))
 y = np.transpose(y)
@@ -301,7 +303,7 @@ x_test = (x_test - xMean) / xStd
 
 #nn setup
 print("Setting up ...")
-inputs = Input(shape = (4, 4, 4))
+inputs = Input(shape = (channelPerStr, strNum, 4))
 shares = share(postFix, inputs)
 rr_branch = separate(postFix, "rr", shares)
 zz_branch = separate(postFix, "zz", shares)
