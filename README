@@ -1,6 +1,20 @@
 To run the script:
 `python covRecon.py $PATH $LABEL $PARA`, e.g. `python covRecon.py /data/user/ypan/bin/simulations/ARA02Recon/*_ARA02_*.hdf5 train 3layers`.
+`$PARA` in {"2layers", "3layers", "4layers"}
+`$LABEL` in {"train", "rr", "zz", "tt", "cos", "ze", "cosAz", "sh"}
+
 
 Recommend:
 run `bash covReconTrain.sh` to train a network. The network will be saved in `./plots/covRecon/` as an hdf5 file by default.
 run `bash covReconPlot$LABEL.sh` to visulize results. The plots will be saved in `./plots/covRecon/` by default.
+
+
+rr(relative error)	Horizontal distances from the station center to the vertices.	Loss = mspe
+zz(relative error)	Vertical distances from the surface to the vertices. 		Loss = mspe
+tt(deg)			Zenith angles from the station center to the vertices.		Loss = mse
+cos(pp), sin(pp)	Azimuth angles from the station center to the vertices. 
+			Recalculated from cos(pp) and sin(pp). 				Loss = mse
+ze(deg)		Zenith angles pointing back to the neutrino zeniths.		Loss = mse
+cos(az), sin(az)	Azimuth angles pointing back to the neutrino azimuths.
+			Recalculated from cos(az) and sin(az).				Loss = mse
+sh(log10(eV))		Log10(shower energies).						Loss = mse
