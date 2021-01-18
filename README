@@ -1,0 +1,6 @@
+To run the script:
+`python covRecon.py $PATH $LABEL $PARA`, e.g. `python covRecon.py /data/user/ypan/bin/simulations/ARA02Recon/*_ARA02_*.hdf5 train 3layers`.
+
+Recommend:
+run `bash covReconTrain.sh` to train a network. The network will be saved in `./plots/covRecon/` as an hdf5 file by default.
+run `bash covReconPlot$LABEL.sh` to visulize results. The plots will be saved in `./plots/covRecon/` by default.
