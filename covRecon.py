@@ -26,7 +26,7 @@ from radiotools import helper as hp
 from NuRadioMC.SignalProp import analyticraytracing as ray
 import warnings 
 warnings.filterwarnings('ignore')
-warnings.filterwarnings('ignore', category=DeprecationWarning)
+warnings.filterwarnings('ignore', category = DeprecationWarning)
 
 def my_mspe(y_true, y_pred):
     y_pred = ops.convert_to_tensor(y_pred)
@@ -45,6 +45,97 @@ def normalize(mat):
     nume = np.maximum(maximum - minimum, 1e-10)
     mat = (mat - minimum) / nume
     return mat.reshape((mat.shape[0], nRow, nCol))
+
+def share(layers, inputs):
+    if layers == "2layers":
+        x = Conv2D(32, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(inputs)
+        x = Conv2D(16, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(x)
+    elif layers == "3layers":
+        x = Conv2D(32, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(inputs)
+        x = Conv2D(16, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(x)
+        x = Conv2D(8, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(x)
+    elif layers == "4layers":
+        x = Conv2D(32, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(inputs)
+        x = Conv2D(16, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(x)
+        x = Conv2D(8, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(x)
+        x = Conv2D(4, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(x)
+    else:
+        sys.exit(1)
+    x = Flatten()(x)
+    #no shared convolutional layers, return inputs directly
+    return inputs
+
+def separate(layers, pred, shares):
+    if layers == "2layers":
+        x = Conv2D(32, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(shares)
+        x = Conv2D(8, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(x)
+        x = Flatten()(x)
+        x = Dense(32, kernel_initializer = keras.initializers.he_uniform(seed = 1), activation='relu')(x)
+        x = Dense(1, name = "{}_output".format(pred))(x)
+    elif layers == "3layers":
+        x = Conv2D(32, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(shares)
+        x = Conv2D(16, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(x)
+        x = Conv2D(8, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(x)
+        x = Flatten()(x)
+        x = Dense(32, kernel_initializer = keras.initializers.he_uniform(seed = 1), activation='relu')(x)
+        x = Dense(16, kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = 'relu')(x)
+        x = Dense(1, name = "{}_output".format(pred))(x)
+    elif layers == "4layers":
+        x = Conv2D(32, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(shares)
+        x = Conv2D(16, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(x)
+        x = Conv2D(8, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(x)
+        x = Conv2D(4, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(x)
+        x = Flatten()(x)
+        x = Dense(32, kernel_initializer = keras.initializers.he_uniform(seed = 1), activation='relu')(x)
+        x = Dense(16, kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = 'relu')(x)
+        x = Dense(8, kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = 'relu')(x)
+        x = Dense(1, name = "{}_output".format(pred))(x)
+    else:
+        sys.exit(1)
+    return x
+
+def plotLearn(pred):
+    if pred == "rr" or pred == "zz" or pred == "dd" or pred == "cos" or pred == "sin" or pred == "cosAz" or pred == "sinAz":
+        plt.plot(np.sqrt(np.array(history.history["{}_output_loss".format(pred)])), label = "training", linewidth = 0.5)
+        plt.plot(np.sqrt(np.array(history.history["val_{}_output_loss".format(pred)])), label = "validation", linewidth = 0.5)
+        plt.ylim((0.01, 0.5))
+        plt.yscale('log')
+    elif pred == "en" or pred == "sh":
+        plt.plot(np.sqrt(np.array(history.history["{}_output_loss".format(pred)])), label = "training", linewidth = 0.5)
+        plt.plot(np.sqrt(np.array(history.history["val_{}_output_loss".format(pred)])), label = "validation", linewidth = 0.5)
+        plt.ylim((0.01, 5))
+        plt.yscale('log')
+    elif pred == "tt" or pred == "rt" or pred == "ze":
+        plt.plot(np.degrees(np.sqrt(np.array(history.history["{}_output_loss".format(pred)]))), label = "training", linewidth = 0.5)
+        plt.plot(np.degrees(np.sqrt(np.array(history.history["val_{}_output_loss".format(pred)]))), label = "validation", linewidth = 0.5)
+        plt.ylim((0.01, 45))
+        plt.yscale('log')
+    elif pred == "total":
+        plt.plot(np.array(history.history["loss"]), label = "training", linewidth = 0.5)
+        plt.plot(np.array(history.history["val_loss"]), label = "validation", linewidth = 0.5)
+        plt.ylim((0.01, 45))
+        plt.yscale('log')
+    elif pred == "combine":
+        plt.plot(np.array(history.history["loss"]), label = "loss", linewidth = 1)
+        plt.plot(100. * np.array(history.history["rr_output_loss"]), label = "rr_output_loss", linewidth = 1)
+        plt.plot(100. * np.array(history.history["zz_output_loss"]), label = "zz_output_loss", linewidth = 1)
+        plt.plot(10000. * np.array(history.history["cos_output_loss"]), label = "cos_output_loss", linewidth = 1)
+        plt.plot(10000. * np.array(history.history["sin_output_loss"]), label = "sin_output_loss", linewidth = 1)
+        plt.plot(100. * np.array(history.history["cosAz_output_loss"]), label = "cosAz_output_loss", linewidth = 1)
+        plt.plot(100. * np.array(history.history["sinAz_output_loss"]), label = "sinAz_output_loss", linewidth = 1)
+        plt.plot(np.array(history.history["sh_output_loss"]), label = "sh_output_loss", linewidth = 1)
+        plt.plot(10000. * np.array(history.history["tt_output_loss"]), label = "tt_output_loss", linewidth = 1)
+        plt.plot(100. * np.array(history.history["ze_output_loss"]), label = "ze_output_loss", linewidth = 1)
+        plt.ylim((0.01, 1000))
+        plt.yscale('log')
+    plt.title("train on {} samples\nvalidate on {} samples\n{}".format(len(y_train), len(y_val), postFix))        
+    plt.legend()
+    plt.grid(True)
+    plt.xlabel("epoch")
+    plt.ylabel("{}_loss".format(pred))
+    plt.tight_layout()
+    plt.savefig("./plots/covRecon/loss_{}_{}train0test0.pdf".format(postFix, pred))
+    plt.clf()
 
 Energies = np.array([16.5, 17.0, 17.5, 18, 18.5, 19.0, 19.5, 20.])
 postFix = sys.argv[-1]
@@ -140,7 +231,6 @@ n_index = np.array([ice.get_index_of_refraction(x) for x in np.array([xx, yy, zz
 cherenkov = np.arccos(1. / n_index)
 hAmp = np.sign(np.multiply(polarization[:, :, :, 0], polarization[:, :, :, 1])) * np.sqrt(np.add(np.square(polarization[:, :, :, 0]), np.square(polarization[:, :, :, 1])))
 vAmp = polarization[:, :, :, 2]
-#ratio = np.divide(hAmp, vAmp)
 ratio = np.arctan2(hAmp, vAmp)
 showerEnergies = np.round(np.log10(np.where((np.abs(flavors) == 12) & (interaction_type == "cc"), 1., inelasticity) * energies), 2)
 energies = np.round(np.log10(energies), 1)
@@ -156,20 +246,6 @@ cos = xx / rr
 sin = yy / rr
 cosAz = np.cos(azimuths)
 sinAz = np.sin(azimuths)
-'''
-print("#event_ids energies xx yy zz flavors inelasticity azimuths zeniths travel_times_dir  travel_times_ref launch_vectors_dir launch_vectors_ref")
-print("{:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} [{:.2f}, {:.2f}, {:.2f}] [{:.2f}, {:.2f}, {:.2f}]".format(event_ids[0], energies[0], xx[0], yy[0], zz[0], flavors[0], inelasticity[0], azimuths[0], zeniths[0], travel_times[0][0][0], travel_times[0][0][1], launch_vectors[0][0][0][0], launch_vectors[0][0][0][1], launch_vectors[0][0][0][2], launch_vectors[0][0][1][0], launch_vectors[0][0][1][1], launch_vectors[0][0][1][2]))
-print("#viewing_dir viewing_ref cone_dir cone_ref")
-print("{:.2f} {:.2f} {:.2f} {:.2f}".format(np.degrees(viewing_angles_dir[0, 0, 0]), np.degrees(viewing_angles_ref[0, 0, 0]), np.degrees(cone_angles_dir[0, 0, 0]), np.degrees(cone_angles_ref[0, 0, 0])))
-print("e1: ", shower_axis[0])
-print("e2: ", yOnCone[0])
-print("e3: ", zOnCone[0])
-print("launch vectors dir: ", launch_vectors_dir[0])
-print("launch vectors ref: ", launch_vectors_ref[0])
-print("launch on cone dir: ", launchOnCone_dir[0])
-print("launch on cone ref: ", launchOnCone_ref[0])
-sys.exit(1)
-'''
 
 #nn data cleaning
 print("Data cleaning ...")
@@ -200,32 +276,16 @@ ratio_dir = np.where(Filter, ratio[:, 0], ratio[:, 1])
 ratio_ref = np.where(Filter, ratio[:, 1], ratio[:, 0])
 ratio_dir = ratio_dir.reshape(int(ratio_dir.shape[0] / 16), 4, 4)
 ratio_ref = ratio_ref.reshape(int(ratio_ref.shape[0] / 16), 4, 4)
-'''
-ratio_dir = normalize(ratio_dir)
-ratio_ref = normalize(ratio_ref)
-'''
 Filter = Filter.reshape(int(Filter.shape[0] / 16), 16)
 viewAngle_dir, viewAngle_ref = np.where(Filter[:, 0], viewing_angles_dir[:, 0, 0], viewing_angles_ref[:, 0, 0]).copy(), np.where(Filter[:, 0], viewing_angles_ref[:, 0, 0], viewing_angles_dir[:, 0, 0]).copy()
 coneAngle_dir, coneAngle_ref = np.where(Filter[:, 0], cone_angles_dir[:, 0, 0], cone_angles_ref[:, 0, 0]).copy(), np.where(Filter[:, 0], cone_angles_ref[:, 0, 0], cone_angles_dir[:, 0, 0]).copy()
-'''
-viewing_angles_dir = normalize(viewing_angles_dir)
-viewing_angles_ref = normalize(viewing_angles_ref)
-cone_angles_dir = normalize(cone_angles_dir)
-cone_angles_ref = normalize(cone_angles_ref)
-'''
-#x = np.stack((travel_times_dir, max_amp_ray_solution_dir), axis = 3)
-#x = np.stack((travel_times_dir, travel_times_ref, max_amp_ray_solution_dir, max_amp_ray_solution_ref), axis = 3)
-#x = np.stack((travel_times_dir, travel_times_ref, max_amp_ray_solution_dir, max_amp_ray_solution_ref, ratio_dir, ratio_ref), axis = 3)
-#x = np.stack((travel_times_dir, travel_times_ref, max_amp_ray_solution_dir, max_amp_ray_solution_ref, viewing_angles_dir, viewing_angles_ref, cone_angles_dir, cone_angles_ref), axis = 3)
-#x = np.stack((travel_times_dir, travel_times_ref, max_amp_ray_solution_dir, max_amp_ray_solution_ref, cone_angles_dir, cone_angles_ref), axis = 3)
-x = np.stack((travel_times_dir, travel_times_ref, max_amp_ray_solution_dir, max_amp_ray_solution_ref, ratio_dir, ratio_ref), axis = 3)
+x = np.stack((travel_times_dir, travel_times_ref, max_amp_ray_solution_dir, max_amp_ray_solution_ref), axis = 3)
 y = np.vstack((rr, zz, dd, pp, tt, cos, sin, azimuths, zeniths, energies, cosAz, sinAz, showerEnergies, xx, yy, flavors, viewAngle_dir, viewAngle_ref, coneAngle_dir, coneAngle_ref))
 y = np.transpose(y)
 maskY = np.isnan(y).any(axis = 1)
 maskX = np.isnan(x).any(axis = 1).any(axis = 1).any(axis = 1)
 ray_tracing_solution_type = ray_tracing_solution_type.reshape((ray_tracing_solution_type.shape[0], ray_tracing_solution_type.shape[1] * 2))
 maskSolutionType = np.where(ray_tracing_solution_type == 3, True, False).any(axis = 1)
-#mask = np.logical_or(np.logical_or(maskX, maskY), maskSolutionType)
 mask = np.logical_or(maskX, maskY)
 x = x[~mask]
 y = y[~mask]
@@ -235,75 +295,13 @@ xMean = np.nanmean(x_train, axis = 0)
 xStd = np.nanstd(x_train, axis = 0)
 xMin = np.nanmin(x_train, axis = 0)
 xMax = np.nanmax(x_train, axis = 0)
-
 x_train = (x_train - xMean) / xStd
 x_val = (x_val - xMean) / xStd
 x_test = (x_test - xMean) / xStd
 
-'''
-x_train = (x_train - xMin) / (xMax - xMin)
-x_val = (x_val - xMin) / (xMax - xMin)
-x_test = (x_test - xMin) / (xMax - xMin)
-x_train = np.nan_to_num(x_train)
-x_val = np.nan_to_num(x_val)
-x_test = np.nan_to_num(x_test)
-'''
-
 #nn setup
 print("Setting up ...")
-
-def share(layers, inputs):
-    if layers == "2layers":
-        x = Conv2D(32, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(inputs)
-        x = Conv2D(16, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(x)
-    elif layers == "3layers":
-        x = Conv2D(32, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(inputs)
-        x = Conv2D(16, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(x)
-        x = Conv2D(8, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(x)
-    elif layers == "4layers":
-        x = Conv2D(32, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(inputs)
-        x = Conv2D(16, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(x)
-        x = Conv2D(8, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(x)
-        x = Conv2D(4, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(x)
-    elif layers == "5layers":
-        x = Conv2D(128, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(inputs)
-        x = Conv2D(64, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(x)
-        x = Conv2D(32, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(x)
-        x = Conv2D(16, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(x)
-        x = Conv2D(8, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(x)
-    else:
-        sys.exit(1)
-    x = Flatten()(x)
-    return inputs
-
-def separate(layers, pred, shares):
-    if layers == "2layers":
-        x = Dense(32, kernel_initializer = keras.initializers.he_uniform(seed = 1), activation='relu')(shares)
-        x = Dense(1, name = "{}_output".format(pred))(x)
-    elif layers == "3layers":
-        x = Conv2D(32, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(shares)
-        x = Conv2D(16, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(x)
-        x = Conv2D(8, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(x)
-        x = Flatten()(x)
-        x = Dense(32, kernel_initializer = keras.initializers.he_uniform(seed = 1), activation='relu')(x)
-        x = Dense(16, kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = 'relu')(x)
-        x = Dense(1, name = "{}_output".format(pred))(x)
-    elif layers == "4layers":
-        x = Dense(32, kernel_initializer = keras.initializers.he_uniform(seed = 1), activation='relu')(shares)
-        x = Dense(16, kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = 'relu')(x)
-        x = Dense(8, kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = 'relu')(x)
-        x = Dense(1, name = "{}_output".format(pred))(x)
-    elif layers == "5layers":
-        x = Dense(128, kernel_initializer = keras.initializers.he_uniform(seed = 1), activation='relu')(shares)
-        x = Dense(64, kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = 'relu')(x)
-        x = Dense(32, kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = 'relu')(x)
-        x = Dense(16, kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = 'relu')(x)
-        x = Dense(1, name = "{}_output".format(pred))(x)
-    else:
-        sys.exit(1)
-    return x
-
-inputs = Input(shape = (4, 4, 8))
+inputs = Input(shape = (4, 4, 4))
 shares = share(postFix, inputs)
 rr_branch = separate(postFix, "rr", shares)
 zz_branch = separate(postFix, "zz", shares)
@@ -323,54 +321,7 @@ keras.utils.plot_model(model, "./plots/covRecon/arch_{}train0test0.pdf".format(p
 #nn training
 if Pred == "train":
     print("Training ...")
-    #history = model.fit(x_train, [y_train[:, 0], y_train[:, 1], y_train[:, 4], y_train[:, 5], y_train[:, 6], y_train[:, 8], y_train[:, 10], y_train[:, 11], y_train[:, 12]], epochs = 500, batch_size = 128, verbose = 1, validation_data = (x_val, [y_val[:, 0], y_val[:, 1], y_val[:, 4], y_val[:, 5], y_val[:, 6], y_val[:, 8], y_val[:, 10], y_val[:, 11], y_val[:, 12]]), callbacks = [checkpoint, EarlyStopping(monitor = 'val_loss', patience = 8, verbose = 1, mode = 'min'), ReduceLROnPlateau(monitor = 'val_loss', factor = 0.2, verbose = 1, patience = 3)])
     history = model.fit(x_train, [y_train[:, 0], y_train[:, 1], y_train[:, 4], y_train[:, 5], y_train[:, 6], y_train[:, 8], y_train[:, 10], y_train[:, 11], y_train[:, 12]], epochs = 50, batch_size = 128, verbose = 1, validation_data = (x_val, [y_val[:, 0], y_val[:, 1], y_val[:, 4], y_val[:, 5], y_val[:, 6], y_val[:, 8], y_val[:, 10], y_val[:, 11], y_val[:, 12]]), callbacks = [checkpoint, ReduceLROnPlateau(monitor = 'val_loss', factor = 0.2, verbose = 1, patience = 3)])
-
-    #learning curve
-    def plotLearn(pred):
-        if pred == "rr" or pred == "zz" or pred == "dd" or pred == "cos" or pred == "sin" or pred == "cosAz" or pred == "sinAz":
-            plt.plot(np.sqrt(np.array(history.history["{}_output_loss".format(pred)])), label = "training", linewidth = 0.5)
-            plt.plot(np.sqrt(np.array(history.history["val_{}_output_loss".format(pred)])), label = "validation", linewidth = 0.5)
-            plt.ylim((0.01, 0.5))
-            plt.yscale('log')
-        elif pred == "en" or pred == "sh":
-            plt.plot(np.sqrt(np.array(history.history["{}_output_loss".format(pred)])), label = "training", linewidth = 0.5)
-            plt.plot(np.sqrt(np.array(history.history["val_{}_output_loss".format(pred)])), label = "validation", linewidth = 0.5)
-            plt.ylim((0.01, 5))
-            plt.yscale('log')
-        elif pred == "tt" or pred == "rt" or pred == "ze":
-            plt.plot(np.degrees(np.sqrt(np.array(history.history["{}_output_loss".format(pred)]))), label = "training", linewidth = 0.5)
-            plt.plot(np.degrees(np.sqrt(np.array(history.history["val_{}_output_loss".format(pred)]))), label = "validation", linewidth = 0.5)
-            plt.ylim((0.01, 45))
-            plt.yscale('log')
-        elif pred == "total":
-            plt.plot(np.array(history.history["loss"]), label = "training", linewidth = 0.5)
-            plt.plot(np.array(history.history["val_loss"]), label = "validation", linewidth = 0.5)
-            plt.ylim((0.01, 45))
-            plt.yscale('log')
-        elif pred == "combine":
-            plt.plot(np.array(history.history["loss"]), label = "loss", linewidth = 1)
-            plt.plot(100. * np.array(history.history["rr_output_loss"]), label = "rr_output_loss", linewidth = 1)
-            plt.plot(100. * np.array(history.history["zz_output_loss"]), label = "zz_output_loss", linewidth = 1)
-            plt.plot(10000. * np.array(history.history["cos_output_loss"]), label = "cos_output_loss", linewidth = 1)
-            plt.plot(10000. * np.array(history.history["sin_output_loss"]), label = "sin_output_loss", linewidth = 1)
-            plt.plot(100. * np.array(history.history["cosAz_output_loss"]), label = "cosAz_output_loss", linewidth = 1)
-            plt.plot(100. * np.array(history.history["sinAz_output_loss"]), label = "sinAz_output_loss", linewidth = 1)
-            plt.plot(np.array(history.history["sh_output_loss"]), label = "sh_output_loss", linewidth = 1)
-            plt.plot(10000. * np.array(history.history["tt_output_loss"]), label = "tt_output_loss", linewidth = 1)
-            plt.plot(100. * np.array(history.history["ze_output_loss"]), label = "ze_output_loss", linewidth = 1)
-            plt.ylim((0.01, 1000))
-            plt.yscale('log')
-        plt.title("train on {} samples\nvalidate on {} samples\n{}".format(len(y_train), len(y_val), postFix))        
-        plt.legend()
-        plt.grid(True)
-        plt.xlabel("epoch")
-        plt.ylabel("{}_loss".format(pred))
-        plt.tight_layout()
-        plt.savefig("./plots/covRecon/loss_{}_{}train0test0.pdf".format(postFix, pred))
-        plt.clf()
-
-    #print(history.history.keys())
     plotLearn("combine")
     plotLearn("total")
     plotLearn("rr")
@@ -387,7 +338,6 @@ if Pred == "train":
 #nn analysis
 print("Making plots ...")
 model.load_weights("./plots/covRecon/allPairsWeights_{}train0test0.hdf5".format(postFix))
-#print(history.history.keys())
 fl_train = y_train[:, 15].reshape((len(y_train), 1))
 fl_test = y_test[:, 15].reshape((len(y_test), 1))
 rr_train = y_train[:, 0].reshape((len(y_train), 1))
@@ -448,116 +398,9 @@ elif Pred == "sh":
     y_train_pred = np.array(model.predict(x_train, batch_size = 128))[8]
     y_test = y_test[:, 12]
     y_train = y_train[:, 12]
-elif Pred == "viewDir":
-    antPos = [10.5874, 2.3432, -170.247]
-    ice = medium.southpole_2015()
-    az_test_pred = np.arctan2(np.array(model.predict(x_test, batch_size = 128))[7], np.array(model.predict(x_test, batch_size = 128))[6])
-    az_test_pred = np.where(az_test_pred < 0, az_test_pred + 2 * np.pi, az_test_pred)
-    shower_axis_test_pred = -1.0 * hp.spherical_to_cartesian(np.array(model.predict(x_test, batch_size = 128))[5], az_test_pred)
-    xx_test_pred = np.multiply(np.array(model.predict(x_test, batch_size = 128))[0], np.array(model.predict(x_test, batch_size = 128))[3])
-    yy_test_pred = np.multiply(np.array(model.predict(x_test, batch_size = 128))[0], np.array(model.predict(x_test, batch_size = 128))[4])
-    zz_test_pred = -1.0 * np.array(model.predict(x_test, batch_size = 128))[1]
-    launch_vectors_test_pred = []
-    for x, y, z in zip(xx_test_pred, yy_test_pred, zz_test_pred):
-        r = ray.ray_tracing(antPos, [x[0], y[0], z[0]], ice)
-        r.find_solutions()
-        if r.has_solution() and r.get_number_of_solutions() == 2:
-            if r.get_travel_time(0) <= r.get_travel_time(1):
-                launch_vectors_test_pred.append(r.get_launch_vector(0))
-            else:
-                launch_vectors_test_pred.append(r.get_launch_vector(1))
-        elif r.has_solution() and r.get_number_of_solutions() == 1:
-            launch_vectors_test_pred.append(r.get_launch_vector(0))
-        else:
-            launch_vectors_test_pred.append([np.nan, np.nan, np.nan])
-    launch_vectors_test_pred = np.array(launch_vectors_test_pred)
-    y_test_pred = np.transpose(np.array([hp.get_angle(x, y) for x, y in zip(shower_axis_test_pred, launch_vectors_test_pred)]))
-    az_train_pred = np.arctan2(np.array(model.predict(x_train, batch_size = 128))[7], np.array(model.predict(x_train, batch_size = 128))[6])
-    az_train_pred = np.where(az_train_pred < 0, az_train_pred + 2 * np.pi, az_train_pred)
-    shower_axis_train_pred = -1.0 * hp.spherical_to_cartesian(np.array(model.predict(x_train, batch_size = 128))[5], az_train_pred)
-    xx_train_pred = np.multiply(np.array(model.predict(x_train, batch_size = 128))[0], np.array(model.predict(x_train, batch_size = 128))[3])
-    yy_train_pred = np.multiply(np.array(model.predict(x_train, batch_size = 128))[0], np.array(model.predict(x_train, batch_size = 128))[4])
-    zz_train_pred = -1.0 * np.array(model.predict(x_train, batch_size = 128))[1]
-    launch_vectors_train_pred = []
-    for (x, y, z) in zip(xx_train_pred, yy_train_pred, zz_train_pred):
-        r = ray.ray_tracing(antPos, [x[0], y[0], z[0]], ice)
-        r.find_solutions()
-        if r.has_solution() and r.get_number_of_solutions() == 2:
-            if r.get_travel_time(0) <= r.get_travel_time(1):
-                launch_vectors_train_pred.append(r.get_launch_vector(0))
-            else:
-                launch_vectors_train_pred.append(r.get_launch_vector(1))
-        elif r.has_solution() and r.get_number_of_solutions() == 1:
-            launch_vectors_train_pred.append(r.get_launch_vector(0))
-        else:
-            launch_vectors_train_pred.append([np.nan, np.nan, np.nan])
-    launch_vectors_train_pred = np.array(launch_vectors_train_pred)
-    y_train_pred = np.transpose(np.array([hp.get_angle(x, y) for x, y in zip(shower_axis_train_pred, launch_vectors_train_pred)]))
-    y_test = y_test[:, 16]
-    y_train = y_train[:, 16]
-    print("id rr_pred rr_true zz_pred zz_true tt_pred tt_true cos_pred cos_true sin_pred sin_true ze_pred ze_true cosAz_pred cosAz_true sinAz_pred sinAz_true sh_pred sh_true lau_x_pred lau_x_true lau_y_pred lau_y_true lau_z_pred lau_z_true view_dir_pred view_dir_true")
-    for i in range(10):
-        print("{} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f}".format(i, rr_test[i][0], ))
-elif Pred == "viewRef":
-    antPos = [10.5874, 2.3432, -170.247]
-    ice = medium.southpole_2015()
-    az_test_pred = np.arctan2(np.array(model.predict(x_test, batch_size = 128))[7], np.array(model.predict(x_test, batch_size = 128))[6])
-    az_test_pred = np.where(az_test_pred < 0, az_test_pred + 2 * np.pi, az_test_pred)
-    shower_axis_test_pred = -1.0 * hp.spherical_to_cartesian(np.array(model.predict(x_test, batch_size = 128))[5], az_test_pred)
-    xx_test_pred = np.multiply(np.array(model.predict(x_test, batch_size = 128))[0], np.array(model.predict(x_test, batch_size = 128))[3])
-    yy_test_pred = np.multiply(np.array(model.predict(x_test, batch_size = 128))[0], np.array(model.predict(x_test, batch_size = 128))[4])
-    zz_test_pred = -1.0 * np.array(model.predict(x_test, batch_size = 128))[1]
-    launch_vectors_test_pred = []
-    for x, y, z in zip(xx_test_pred, yy_test_pred, zz_test_pred):
-        r = ray.ray_tracing(antPos, [x[0], y[0], z[0]], ice)
-        r.find_solutions()
-        if r.has_solution() and r.get_number_of_solutions() == 2:
-            if r.get_travel_time(0) <= r.get_travel_time(1):
-                launch_vectors_test_pred.append(r.get_launch_vector(1))
-            else:
-                launch_vectors_test_pred.append(r.get_launch_vector(0))
-        elif r.has_solution() and r.get_number_of_solutions() == 1:
-            launch_vectors_test_pred.append(r.get_launch_vector(0))
-        else:
-            launch_vectors_test_pred.append([np.nan, np.nan, np.nan])
-    launch_vectors_test_pred = np.array(launch_vectors_test_pred)
-    y_test_pred = np.transpose(np.array([hp.get_angle(x, y) for x, y in zip(shower_axis_test_pred, launch_vectors_test_pred)]))
-    az_train_pred = np.arctan2(np.array(model.predict(x_train, batch_size = 128))[7], np.array(model.predict(x_train, batch_size = 128))[6])
-    az_train_pred = np.where(az_train_pred < 0, az_train_pred + 2 * np.pi, az_train_pred)
-    shower_axis_train_pred = -1.0 * hp.spherical_to_cartesian(np.array(model.predict(x_train, batch_size = 128))[5], az_train_pred)
-    xx_train_pred = np.multiply(np.array(model.predict(x_train, batch_size = 128))[0], np.array(model.predict(x_train, batch_size = 128))[3])
-    yy_train_pred = np.multiply(np.array(model.predict(x_train, batch_size = 128))[0], np.array(model.predict(x_train, batch_size = 128))[4])
-    zz_train_pred = -1.0 * np.array(model.predict(x_train, batch_size = 128))[1]
-    launch_vectors_train_pred = []
-    for (x, y, z) in zip(xx_train_pred, yy_train_pred, zz_train_pred):
-        r = ray.ray_tracing(antPos, [x[0], y[0], z[0]], ice)
-        r.find_solutions()
-        if r.has_solution() and r.get_number_of_solutions() == 2:
-            if r.get_travel_time(0) <= r.get_travel_time(1):
-                launch_vectors_train_pred.append(r.get_launch_vector(1))
-            else:
-                launch_vectors_train_pred.append(r.get_launch_vector(0))
-        elif r.has_solution() and r.get_number_of_solutions() == 1:
-            launch_vectors_train_pred.append(r.get_launch_vector(0))
-        else:
-            launch_vectors_train_pred.append([np.nan, np.nan, np.nan])
-    launch_vectors_train_pred = np.array(launch_vectors_train_pred)
-    y_train_pred = np.transpose(np.array([hp.get_angle(x, y) for x, y in zip(shower_axis_train_pred, launch_vectors_train_pred)]))
-    y_test = y_test[:, 17]
-    y_train = y_train[:, 17]
-elif Pred == "coneDir":
-    y_test_pred = np.array(model.predict(x_test, batch_size = 128))[11]
-    y_train_pred = np.array(model.predict(x_train, batch_size = 128))[11]
-    y_test = y_test[:, 18]
-    y_train = y_train[:, 18]
-elif Pred == "coneRef":
-    y_test_pred = np.array(model.predict(x_test, batch_size = 128))[12]
-    y_train_pred = np.array(model.predict(x_train, batch_size = 128))[12]
-    y_test = y_test[:, 19]
-    y_train = y_train[:, 19]
 else:
     sys.exit(1)
-if Pred == "tt" or Pred == "cos" or Pred == "sin" or Pred == "ze" or Pred == "cosAz" or Pred == "sinAz" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
+if Pred == "tt" or Pred == "cos" or Pred == "sin" or Pred == "ze" or Pred == "cosAz" or Pred == "sinAz":
     y_test_pred = np.degrees(y_test_pred)
     y_train_pred = np.degrees(y_train_pred)
     y_train = np.degrees(y_train)
@@ -628,9 +471,6 @@ for i in range(len(Energies)):
         plt.xlim((-5, 5))
         plt.ylim((0, 1))
         plt.xlabel("{}_error[log10(eV)]".format(Pred))
-    #RE = np.linspace(-5, 5, 200)
-    #plt.plot(RE, stats.norm.pdf(RE, meanPerEnergies[i], sdPerEnergies[i]), linewidth = 1, color = "r")
-    #plt.plot(RE, stats.norm.pdf(RE, meanPerEnergiesNoout[i], sdPerEnergiesNoout[i]), linewidth = 1, color = "b")
     plt.ylabel("{}_count".format(Pred))
     plt.grid(True)
     plt.title("10^{:.3f} eV\ntrained on {} samples\ntested on {} samples\n{}_sd = {:.3f}\n{}_mean = {:.3f}\n{}".format(Energies[i], len(y_train[en_train == Energies[i]]), len(y_test[en_test == Energies[i]]), Pred, sdPerEnergiesNoout[i], Pred, meanPerEnergiesNoout[i], postFix))
@@ -676,9 +516,6 @@ elif Pred == "sh":
     plt.xlim((-5, 5))
     plt.ylim((0, 1))
     plt.xlabel("{}_error[log10(eV)]".format(Pred))
-#RE = np.linspace(-5, 5, 200)
-#plt.plot(RE, stats.norm.pdf(RE, me, sd), linewidth = 1, color = "r")
-#plt.plot(RE, stats.norm.pdf(RE, me, sd), linewidth = 1, color = "b")
 plt.ylabel("{}_count".format(Pred))
 plt.grid(True)
 plt.title("trained on {} samples\ntested on {} samples\n{}_sd = {:.3f}\n{}_mean = {:.3f}\n{}".format(len(y_train), len(y_test), Pred, sdNoout, Pred, meNoout, postFix))
@@ -701,88 +538,7 @@ for i in range(len(Energies)):
 plt.tight_layout()
 plt.savefig("./plots/covRecon/outliers_{}_{}train0test0.pdf".format(postFix, Pred))
 plt.clf()
-"""
-#mean error 2dhist per energy
-plt.rc('font', size = 10)
-diff = np.array(y_test.reshape((len(y_test), 1)) - y_test_pred)
-if Pred == "cos" or Pred == "cosAz":
-    diff = np.where(diff > 180., diff - 360., diff)
-    diff = np.where(diff < -180., diff + 360., diff)
-for i in range(len(Energies)):
-    if Pred == "zz" or Pred == "rr" or Pred == "dd":
-        nume = plt.hist2d(rr_test[en_test == Energies[i]].reshape((len(rr_test[en_test == Energies[i]]),)), zz_test[en_test == Energies[i]].reshape((len(zz_test[en_test == Energies[i]]),)) * -1., bins=[10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'), weights = (diff[en_test == Energies[i]] / y_test[en_test == Energies[i]].reshape((len(y_test[en_test == Energies[i]]), 1))).reshape((diff[en_test == Energies[i]].shape[0],)))
-        deno = plt.hist2d(rr_test[en_test == Energies[i]].reshape((len(rr_test[en_test == Energies[i]]),)), zz_test[en_test == Energies[i]].reshape((len(zz_test[en_test == Energies[i]]),)) * -1., bins=[10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'))
-        plt.clf()
-        plt.pcolormesh(10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100), (nume[0] / deno[0]).transpose(), vmin = -0.5, vmax = 0.5, cmap = cm.RdBu)
-        plt.xscale('log')
-        cb = plt.colorbar()
-        cb.set_label("{}_meanRelativeError".format(Pred))
-    elif Pred == "pp" or Pred == "tt" or Pred == "rt" or Pred == "cos" or Pred == "sin" or Pred == "az" or Pred == "ze" or Pred == "cosAz" or Pred == "sinAz" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
-        nume = plt.hist2d(rr_test[en_test == Energies[i]].reshape((len(rr_test[en_test == Energies[i]]),)), zz_test[en_test == Energies[i]].reshape((len(zz_test[en_test == Energies[i]]),)) * -1., bins=[10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'), weights = (diff[en_test == Energies[i]]).reshape((diff[en_test == Energies[i]].shape[0],)))
-        deno = plt.hist2d(rr_test[en_test == Energies[i]].reshape((len(rr_test[en_test == Energies[i]]),)), zz_test[en_test == Energies[i]].reshape((len(zz_test[en_test == Energies[i]]),)) * -1., bins=[10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'))
-        plt.clf()
-        plt.pcolormesh(10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100), (nume[0] / deno[0]).transpose(), vmin = -5, vmax = 5, cmap = cm.RdBu)
-        plt.xscale('log')
-        cb = plt.colorbar()
-        cb.set_label("{}_meanError[deg]".format(Pred))
-    elif Pred == "en" or Pred == "sh":
-        nume = plt.hist2d(rr_test[en_test == Energies[i]].reshape((len(rr_test[en_test == Energies[i]]),)), zz_test[en_test == Energies[i]].reshape((len(zz_test[en_test == Energies[i]]),)) * -1., bins=[10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'), weights = (diff[en_test == Energies[i]]).reshape((diff[en_test == Energies[i]].shape[0],)))
-        deno = plt.hist2d(rr_test[en_test == Energies[i]].reshape((len(rr_test[en_test == Energies[i]]),)), zz_test[en_test == Energies[i]].reshape((len(zz_test[en_test == Energies[i]]),)) * -1., bins=[10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'))
-        plt.clf()
-        plt.pcolormesh(10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100), (nume[0] / deno[0]).transpose(), vmin = -2, vmax = 2, cmap = cm.RdBu)
-        #plt.pcolormesh(10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100), (nume[0] / deno[0]).transpose(), norm = colors.SymLogNorm(linthresh = 0.03, linscale = 0.03, vmin = -2, vmax = 2), cmap = cm.RdBu)
-        plt.xscale('log')
-        cb = plt.colorbar()
-        cb.set_label("{}_meanError[log10(eV)]".format(Pred))
-    plt.title("10^{:.3f} eV\n{}_{}".format(Energies[i], Pred, postFix))
-    plt.gca().set_aspect("equal")
-    plt.xlabel("rr[m]")
-    plt.ylabel("zz[m]")
-    plt.grid(True)
-    plt.tight_layout()
-    plt.savefig("./plots/covRecon/meanErrorPerEnergy_rzHist_{:.1f}_{}_{}train0test0.pdf".format(Energies[i], postFix, Pred))
-    plt.clf()
 
-#mse error 2dhist per energy
-plt.rc('font', size = 10)
-diff = np.array(y_test.reshape((len(y_test), 1)) - y_test_pred)
-if Pred == "cos" or Pred == "cosAz":
-    diff = np.where(diff > 180., diff - 360., diff)
-    diff = np.where(diff < -180., diff + 360., diff)
-for i in range(len(Energies)):
-    if Pred == "zz" or Pred == "rr" or Pred == "dd":
-        nume = plt.hist2d(rr_test[en_test == Energies[i]].reshape((len(rr_test[en_test == Energies[i]]),)), zz_test[en_test == Energies[i]].reshape((len(zz_test[en_test == Energies[i]]),)) * -1., bins=[10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'), weights = np.square(diff[en_test == Energies[i]] / y_test[en_test == Energies[i]].reshape((len(y_test[en_test == Energies[i]]), 1))).reshape((diff[en_test == Energies[i]].shape[0],)))
-        deno = plt.hist2d(rr_test[en_test == Energies[i]].reshape((len(rr_test[en_test == Energies[i]]),)), zz_test[en_test == Energies[i]].reshape((len(zz_test[en_test == Energies[i]]),)) * -1., bins=[10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'))
-        plt.clf()
-        plt.pcolormesh(10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100), (nume[0] / deno[0]).transpose(), vmin = 0, vmax = 0.2, cmap = cm.Blues)
-        plt.xscale('log')
-        cb = plt.colorbar()
-        cb.set_label("{}_mseRelativeError".format(Pred))
-    elif Pred == "pp" or Pred == "tt" or Pred == "rt" or Pred == "cos" or Pred == "sin" or Pred == "az" or Pred == "ze" or Pred == "cosAz" or Pred == "sinAz" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
-        nume = plt.hist2d(rr_test[en_test == Energies[i]].reshape((len(rr_test[en_test == Energies[i]]),)), zz_test[en_test == Energies[i]].reshape((len(zz_test[en_test == Energies[i]]),)) * -1., bins=[10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'), weights = np.square(diff[en_test == Energies[i]]).reshape((diff[en_test == Energies[i]].shape[0],)))
-        deno = plt.hist2d(rr_test[en_test == Energies[i]].reshape((len(rr_test[en_test == Energies[i]]),)), zz_test[en_test == Energies[i]].reshape((len(zz_test[en_test == Energies[i]]),)) * -1., bins=[10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'))
-        plt.clf()
-        plt.pcolormesh(10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100), (nume[0] / deno[0]).transpose(), vmin = 0, vmax = 5, cmap = cm.Blues)
-        plt.xscale('log')
-        cb = plt.colorbar()
-        cb.set_label("{}_mseError[deg^2]".format(Pred))
-    elif Pred == "en" or Pred == "sh":
-        nume = plt.hist2d(rr_test[en_test == Energies[i]].reshape((len(rr_test[en_test == Energies[i]]),)), zz_test[en_test == Energies[i]].reshape((len(zz_test[en_test == Energies[i]]),)) * -1., bins=[10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'), weights = np.square(diff[en_test == Energies[i]]).reshape((diff[en_test == Energies[i]].shape[0],)))
-        deno = plt.hist2d(rr_test[en_test == Energies[i]].reshape((len(rr_test[en_test == Energies[i]]),)), zz_test[en_test == Energies[i]].reshape((len(zz_test[en_test == Energies[i]]),)) * -1., bins=[10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'))
-        plt.clf()
-        plt.pcolormesh(10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100), (nume[0] / deno[0]).transpose(), vmin = 0, vmax = 2, cmap = cm.Blues)
-        plt.xscale('log')
-        cb = plt.colorbar()
-        cb.set_label("{}_mseError[log10(eV)^2]".format(Pred))
-    plt.title("10^{:.3f} eV\n{}_{}".format(Energies[i], Pred, postFix))
-    plt.gca().set_aspect("equal")
-    plt.xlabel("rr[m]")
-    plt.ylabel("zz[m]")
-    plt.grid(True)
-    plt.tight_layout()
-    plt.savefig("./plots/covRecon/mseErrorPerEnergy_rzHist_{:.1f}_{}_{}train0test0.pdf".format(Energies[i], postFix, Pred))
-    plt.clf()
-"""
 #true vs pred
 plt.rc('font', size = 5)
 for i in range(len(Energies)):
@@ -1191,44 +947,6 @@ plt.tight_layout()
 plt.savefig("./plots/covRecon/rmsError_viewVsConeRefHistLinear_forTrain{}_{}train0test0.pdf".format(postFix, Pred))
 plt.clf()
 
-'''
-#2dhist of mean error for validation set log
-plt.rc('font', size = 10)
-if Pred == "zz" or Pred == "rr" or Pred == "dd":
-    nume = plt.hist2d(rr_train.reshape((len(rr_train),)), zz_train.reshape((len(zz_train),)) * -1., bins=[10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'), weights = (diff / y_train.reshape((y_train.shape[0], 1))).reshape((diff.shape[0],)))
-    deno = plt.hist2d(rr_train.reshape((len(rr_train),)), zz_train.reshape((len(zz_train),)) * -1., bins=[10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'))
-    plt.clf()
-    plt.pcolormesh(10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100), (nume[0] / deno[0]).transpose(), vmin = -0.5, vmax = 0.5, cmap = cm.RdBu)
-    plt.xscale('log')
-    cb = plt.colorbar()
-    cb.set_label("{}_meanRelativeError".format(Pred))
-    plt.title("relative error = (true - pred) / true")
-elif Pred == "pp" or Pred == "tt" or Pred == "rt" or Pred == "cos" or Pred == "sin" or Pred == "az" or Pred == "ze" or Pred == "cosAz" or Pred == "sinAz" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
-    nume = plt.hist2d(rr_train.reshape((len(rr_train),)), zz_train.reshape((len(zz_train),)) * -1., bins=[10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'), weights = diff.reshape((diff.shape[0],)))
-    deno = plt.hist2d(rr_train.reshape((len(rr_train),)), zz_train.reshape((len(zz_train),)) * -1., bins=[10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'))
-    plt.clf()
-    plt.pcolormesh(10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100), (nume[0] / deno[0]).transpose(), vmin = -5., vmax = 5., cmap = cm.RdBu)
-    plt.xscale('log')
-    cb = plt.colorbar()
-    cb.set_label("{}_error[deg]".format(Pred))
-    plt.title("error = true - pred")
-elif Pred == "en" or Pred == "sh":
-    nume = plt.hist2d(rr_train.reshape((len(rr_train),)), zz_train.reshape((len(zz_train),)) * -1., bins=[10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'), weights = diff.reshape((diff.shape[0],)))
-    deno = plt.hist2d(rr_train.reshape((len(rr_train),)), zz_train.reshape((len(zz_train),)) * -1., bins=[10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'))
-    plt.clf()
-    plt.pcolormesh(10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100), (nume[0] / deno[0]).transpose(), vmin = -2., vmax = 2., cmap = cm.RdBu)
-    plt.xscale('log')
-    cb = plt.colorbar()
-    cb.set_label("{}_error[log10(eV)]".format(Pred))
-    plt.title("error = true - pred")
-plt.gca().set_aspect("equal")
-plt.xlabel("rr[m]")
-plt.ylabel("zz[m]")
-plt.grid(True)
-plt.tight_layout()
-plt.savefig("./plots/covRecon/meanError_rzHistLog_forTrain{}_{}train0test0.pdf".format(postFix, Pred))
-plt.clf()
-'''
 #2dhist of mean error linear
 plt.rc('font', size = 10)
 diff = np.array(y_test.reshape((len(y_test), 1)) - y_test_pred)
@@ -1265,44 +983,7 @@ plt.grid(True)
 plt.tight_layout()
 plt.savefig("./plots/covRecon/meanError_rzHistLinear_{}_{}train0test0.pdf".format(postFix, Pred))
 plt.clf()
-'''
-#2dhist of mean error log
-plt.rc('font', size = 10)
-if Pred == "zz" or Pred == "rr" or Pred == "dd":
-    nume = plt.hist2d(rr_test.reshape((len(rr_test),)), zz_test.reshape((len(zz_test),)) * -1., bins=[10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'), weights = (diff / y_test.reshape((len(y_test), 1))).reshape((diff.shape[0],)))
-    deno = plt.hist2d(rr_test.reshape((len(rr_test),)), zz_test.reshape((len(zz_test),)) * -1., bins=[10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'))
-    plt.clf()
-    plt.pcolormesh(10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100), (nume[0] / deno[0]).transpose(), vmin = -0.5, vmax = 0.5, cmap = cm.RdBu)
-    plt.xscale('log')
-    cb = plt.colorbar()
-    cb.set_label("{}_meanRelativeError".format(Pred))
-    plt.title("relative error = (true - pred) / true")
-elif Pred == "pp" or Pred == "tt" or Pred == "rt" or Pred == "cos" or Pred == "sin" or Pred == "az" or Pred == "ze" or Pred == "cosAz" or Pred == "sinAz" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
-    nume = plt.hist2d(rr_test.reshape((len(rr_test),)), zz_test.reshape((len(zz_test),)) * -1., bins=[10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'), weights = diff.reshape((diff.shape[0],)))
-    deno = plt.hist2d(rr_test.reshape((len(rr_test),)), zz_test.reshape((len(zz_test),)) * -1., bins=[10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'))
-    plt.clf()
-    plt.pcolormesh(10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100), (nume[0] / deno[0]).transpose(), vmin = -5., vmax = 5., cmap = cm.RdBu)
-    plt.xscale('log')
-    cb = plt.colorbar()
-    cb.set_label("{}_error[deg]".format(Pred))
-    plt.title("error = true - pred")
-elif Pred == "en" or Pred == "sh":
-    nume = plt.hist2d(rr_test.reshape((len(rr_test),)), zz_test.reshape((len(zz_test),)) * -1., bins=[10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'), weights = diff.reshape((diff.shape[0],)))
-    deno = plt.hist2d(rr_test.reshape((len(rr_test),)), zz_test.reshape((len(zz_test),)) * -1., bins=[10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'))
-    plt.clf()
-    plt.pcolormesh(10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100), (nume[0] / deno[0]).transpose(), vmin = -2., vmax = 2., cmap = cm.RdBu)
-    plt.xscale('log')
-    cb = plt.colorbar()
-    cb.set_label("{}_error[log10(eV)]".format(Pred))
-    plt.title("error = true - pred")
-plt.gca().set_aspect("equal")
-plt.xlabel("rr[m]")
-plt.ylabel("zz[m]")
-plt.grid(True)
-plt.tight_layout()
-plt.savefig("./plots/covRecon/meanError_rzHistLog_{}_{}train0test0.pdf".format(postFix, Pred))
-plt.clf()
-'''
+
 #xy 2dhist of rms error test
 plt.rc('font', size = 10)
 diff = np.array(y_test.reshape((len(y_test), 1)) - y_test_pred)
@@ -1494,44 +1175,7 @@ plt.grid(True)
 plt.tight_layout()
 plt.savefig("./plots/covRecon/rmsError_rzHistLinear_{}_{}train0test0.pdf".format(postFix, Pred))
 plt.clf()
-'''
-#2dhist of rms error log
-plt.rc('font', size = 10)
-if Pred == "zz" or Pred == "rr" or Pred == "dd":
-    nume = plt.hist2d(rr_test.reshape((len(rr_test),)), zz_test.reshape((len(zz_test),)) * -1., bins=[10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'), weights = np.square(diff / y_test.reshape((len(y_test), 1))).reshape((diff.shape[0],)))
-    deno = plt.hist2d(rr_test.reshape((len(rr_test),)), zz_test.reshape((len(zz_test),)) * -1., bins=[10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'))
-    plt.clf()
-    plt.pcolormesh(10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100), np.sqrt(nume[0] / deno[0]).transpose(), vmin = 0, vmax = 0.5, cmap = cm.Blues)
-    plt.xscale('log')
-    cb = plt.colorbar()
-    cb.set_label("{}_rmsRelativeError".format(Pred))
-    plt.title("relative error = (true - pred) / true")
-elif Pred == "pp" or Pred == "tt" or Pred == "rt" or Pred == "cos" or Pred == "sin" or Pred == "az" or Pred == "ze" or Pred == "cosAz" or Pred == "sinAz" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
-    nume = plt.hist2d(rr_test.reshape((len(rr_test),)), zz_test.reshape((len(zz_test),)) * -1., bins=[10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'), weights = np.square(diff).reshape((diff.shape[0],)))
-    deno = plt.hist2d(rr_test.reshape((len(rr_test),)), zz_test.reshape((len(zz_test),)) * -1., bins=[10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'))
-    plt.clf()
-    plt.pcolormesh(10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100), np.sqrt(nume[0] / deno[0]).transpose(), vmin = 0, vmax = 5, cmap = cm.Blues)
-    plt.xscale('log')
-    cb = plt.colorbar()
-    cb.set_label("{}_rmsError[deg]".format(Pred))
-    plt.title("error = true - pred")
-elif Pred == "en" or Pred == "sh":
-    nume = plt.hist2d(rr_test.reshape((len(rr_test),)), zz_test.reshape((len(zz_test),)) * -1., bins=[10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'), weights = np.square(diff).reshape((diff.shape[0],)))
-    deno = plt.hist2d(rr_test.reshape((len(rr_test),)), zz_test.reshape((len(zz_test),)) * -1., bins=[10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'))
-    plt.clf()
-    plt.pcolormesh(10 ** np.linspace(1, 4, 100), np.arange(-3000, 1, 100), np.sqrt(nume[0] / deno[0]).transpose(), vmin = 0, vmax = 2, cmap = cm.Blues)
-    plt.xscale('log')
-    cb = plt.colorbar()
-    cb.set_label("{}_rmsError[log10(eV)]".format(Pred))
-    plt.title("error = true - pred")
-plt.gca().set_aspect("equal")
-plt.xlabel("rr[m]")
-plt.ylabel("zz[m]")
-plt.grid(True)
-plt.tight_layout()
-plt.savefig("./plots/covRecon/rmsError_rzHistLog_{}_{}train0test0.pdf".format(postFix, Pred))
-plt.clf()
-'''
+
 #2dhist of rms error linear train
 plt.rc('font', size = 10)
 diff = np.array(y_train.reshape((len(y_train), 1)) - y_train_pred)
