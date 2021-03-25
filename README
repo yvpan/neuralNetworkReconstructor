@@ -2,10 +2,10 @@ Packages:
 check the version of required python packages in install.sh. If not sure, run `bash install.sh`.
 
 To run the script:
-`python visualize_sim_input.py $INLIST`, e.g. `python visualize_sim_input.py ./1e18.5_n1e5_?.hdf5`.
+`python visualize_sim_input.py $INLIST`, e.g. `python visualize_sim_input.py ./1e18.5_n1e5_0.hdf5`.
 `$INLIST` is a list of NuRadioMC input files.
 
-`python visualize_sim_output.py $OUTLIST`, e.g. `python visualize_sim_output.py ./1e18.5_n1e5_ARA02_*.hdf5`.
+`python visualize_sim_output.py $OUTLIST`, e.g. `python visualize_sim_output.py ./1e18.5_n1e5_ARA02_0.hdf5`.
 `$OUTLIST` is a list of NuRadioMC output files.
 
 `python covRecon.py $OUTLIST $LABEL $PARA`, e.g. `python covRecon.py ./*_ARA02_*.hdf5 train 3layers`.
