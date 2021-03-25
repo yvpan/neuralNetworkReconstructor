@@ -2,12 +2,21 @@ Packages:
 check the version of required python packages in install.sh. If not sure, run `bash install.sh`.
 
 To run the script:
-`python covRecon.py $PATH $LABEL $PARA`, e.g. `python covRecon.py /data/user/ypan/bin/simulations/ARA02Recon/*_ARA02_*.hdf5 train 3layers`.
-`$PARA` in {"2layers", "3layers", "4layers"}
-`$LABEL` in {"train", "rr", "zz", "tt", "cos", "ze", "cosAz", "sh"}
+`python visualize_sim_input.py $INLIST`, e.g. `python visualize_sim_input.py ./1e18.5_n1e5_?.hdf5`.
+`$INLIST` is a list of NuRadioMC input files.
+
+`python visualize_sim_output.py $OUTLIST`, e.g. `python visualize_sim_output.py ./1e18.5_n1e5_ARA02_*.hdf5`.
+`$OUTLIST` is a list of NuRadioMC output files.
+
+`python covRecon.py $OUTLIST $LABEL $PARA`, e.g. `python covRecon.py ./*_ARA02_*.hdf5 train 3layers`.
+`$OUTLIST` is a list of NuRadioMC output files.
+`$PARA` in {"2layers", "3layers", "4layers"}.
+`$LABEL` in {"train", "rr", "zz", "tt", "cos", "ze", "cosAz", "sh"}.
 
 
 Recommend:
+run `bash visInput.sh` to visualize the NuRadioMC input files.
+run `bash visOutput.sh` to visualize the NuRadioMC output files.
 run `bash covReconTrain.sh` to train a network. The network will be saved in `./plots/covRecon/` as an hdf5 file by default.
 run `bash covReconPlot$LABEL.sh` to visulize results. The plots will be saved in `./plots/covRecon/` by default.
 
