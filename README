@@ -5,28 +5,27 @@ To run the script:
 `python visualize_sim_input.py $INLIST`, e.g. `python visualize_sim_input.py ./1e18.5_n1e5_0.hdf5`.
 `$INLIST` is a list of NuRadioMC input files.
 
-`python visualize_sim_output.py $OUTLIST`, e.g. `python visualize_sim_output.py ./1e18.5_n1e5_ARA02_0.hdf5`.
+`python visualize_sim_output.py $OUTLIST`, e.g. `python visualize_sim_output.py ./1e18.5_n1e5_ARA02_0.hdf5.XFDTD`.
 `$OUTLIST` is a list of NuRadioMC output files.
 
-`python covRecon.py $OUTLIST $LABEL $PARA`, e.g. `python covRecon.py ./*_ARA02_*.hdf5 train 3layers`.
+`python nnRecon.py $OUTLIST $LABEL $PARA`, e.g. `python nnRecon.py ./*_ARA02_*.hdf5 train 5 16 200 64`.
 `$OUTLIST` is a list of NuRadioMC output files.
-`$PARA` in {"2layers", "3layers", "4layers"}.
-`$LABEL` in {"train", "rr", "zz", "tt", "cos", "ze", "cosAz", "sh"}.
+`$PARA` in a sequence of # of layers, nodes, epochs, batch size.
+`$LABEL` in {"train", "rr", "tt", "cos", "ze", "cosAz"}.
 
 
 Recommend:
 run `bash visInput.sh` to visualize the NuRadioMC input files.
 run `bash visOutput.sh` to visualize the NuRadioMC output files.
-run `bash covReconTrain.sh` to train a network. The network will be saved in `./plots/covRecon/` as an hdf5 file by default.
-run `bash covReconPlot$LABEL.sh` to visulize results. The plots will be saved in `./plots/covRecon/` by default.
+run `bash gridSearch.sh` to do grid search and find an optimal network configuration.
+run `bash nnReconTrain.sh` to train a network. The network will be saved in `./plots/nnRecon/` as an hdf5 file by default.
+run `bash nnReconPlot$LABEL.sh` to visulize results. The plots will be saved in `./plots/nnRecon/` by default.
 
 
 rr(relative error)	Horizontal distances from the station center to the vertices.	Loss = mspe
-zz(relative error)	Vertical distances from the surface to the vertices. 		Loss = mspe
 tt(deg)			Zenith angles from the station center to the vertices.		Loss = mse
 cos(pp), sin(pp)	Azimuth angles from the station center to the vertices. 
 			Recalculated from cos(pp) and sin(pp). 				Loss = mse
 ze(deg)			Zenith angles pointing back to the neutrino zeniths.		Loss = mse
 cos(az), sin(az)	Azimuth angles pointing back to the neutrino azimuths.
 			Recalculated from cos(az) and sin(az).				Loss = mse
-sh(log10(eV))		Log10(shower energies).						Loss = mse
