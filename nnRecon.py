@@ -8,11 +8,11 @@ from matplotlib import colors, ticker, cm
 from matplotlib.colors import LogNorm
 from scipy.stats import lognorm, norm, sem
 from NuRadioMC.utilities import medium
-from sklearn.linear_model import LinearRegression
 from sklearn.utils import resample
 from sklearn.model_selection import train_test_split
 from sklearn import metrics
 import pandas as pd 
+import seaborn as sbn
 import sklearn
 import keras
 import tensorflow as tf
@@ -23,10 +23,9 @@ from keras.models import Sequential, Model
 from keras.layers import Dense, Activation, Flatten, BatchNormalization, Dropout, Input, MaxPooling3D, Conv3D, MaxPooling2D, Conv2D, Masking, Embedding
 from keras import backend as K
 from radiotools import helper as hp
-from NuRadioMC.SignalProp import analyticraytracing as ray
 import warnings 
 warnings.filterwarnings('ignore')
-warnings.filterwarnings('ignore', category = DeprecationWarning)
+warnings.filterwarnings('ignore', category=DeprecationWarning)
 
 def my_mspe(y_true, y_pred):
     y_pred = ops.convert_to_tensor(y_pred)
@@ -42,83 +41,51 @@ def normalize(mat):
     maximum = maximum.reshape((maximum.shape[0], 1))
     minimum = np.nanmin(mat, axis = 1)
     minimum = minimum.reshape((minimum.shape[0], 1))
-    nume = np.maximum(maximum - minimum, 1e-10)
-    mat = (mat - minimum) / nume
+    deno = np.maximum(maximum - minimum, 1e-10)
+    mat = (mat - minimum) / deno
     return mat.reshape((mat.shape[0], nRow, nCol))
 
 def share(layers, inputs):
-    if layers == "2layers":
-        x = Conv2D(32, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(inputs)
-        x = Conv2D(16, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(x)
-    elif layers == "3layers":
-        x = Conv2D(32, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(inputs)
-        x = Conv2D(16, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(x)
-        x = Conv2D(8, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(x)
-    elif layers == "4layers":
-        x = Conv2D(32, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(inputs)
-        x = Conv2D(16, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(x)
-        x = Conv2D(8, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(x)
-        x = Conv2D(4, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(x)
-    else:
-        sys.exit(1)
+    x = Conv2D(nodes, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "elu")(inputs)
+    for i in range(layers - 1):
+        x = Conv2D(nodes, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "elu")(x)
     x = Flatten()(x)
-    #no shared convolutional layers, return inputs directly
-    return inputs
-
-def separate(layers, pred, shares):
-    if layers == "2layers":
-        x = Conv2D(32, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(shares)
-        x = Conv2D(8, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(x)
-        x = Flatten()(x)
-        x = Dense(32, kernel_initializer = keras.initializers.he_uniform(seed = 1), activation='relu')(x)
-        x = Dense(1, name = "{}_output".format(pred))(x)
-    elif layers == "3layers":
-        x = Conv2D(32, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(shares)
-        x = Conv2D(16, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(x)
-        x = Conv2D(8, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(x)
-        x = Flatten()(x)
-        x = Dense(32, kernel_initializer = keras.initializers.he_uniform(seed = 1), activation='relu')(x)
-        x = Dense(16, kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = 'relu')(x)
-        x = Dense(1, name = "{}_output".format(pred))(x)
-    elif layers == "4layers":
-        x = Conv2D(32, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(shares)
-        x = Conv2D(16, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(x)
-        x = Conv2D(8, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(x)
-        x = Conv2D(4, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "relu")(x)
-        x = Flatten()(x)
-        x = Dense(32, kernel_initializer = keras.initializers.he_uniform(seed = 1), activation='relu')(x)
-        x = Dense(16, kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = 'relu')(x)
-        x = Dense(8, kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = 'relu')(x)
-        x = Dense(1, name = "{}_output".format(pred))(x)
-    else:
-        sys.exit(1)
+    return x
+    
+def separate(layers, pred, inputs):
+    x = Conv2D(nodes, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "elu")(inputs)
+    for i in range(layers - 1):
+        x = Conv2D(nodes, kernel_size=(3, 3), padding = "same", kernel_initializer = keras.initializers.he_uniform(seed = 1), activation = "elu")(x)
+    x = Flatten()(x)
+    for i in range(layers):
+        x = Dense(nodes, kernel_initializer = keras.initializers.he_uniform(seed = 1), activation='elu')(x)
+    x = Dense(1, name = "{}_output".format(pred))(x)
     return x
 
 def plotLearn(pred):
-    if pred == "rr" or pred == "zz" or pred == "dd" or pred == "cos" or pred == "sin" or pred == "cosAz" or pred == "sinAz":
+    if pred == "rr" or pred == "cos" or pred == "sin" or pred == "cosAz" or pred == "sinAz":
         plt.plot(np.sqrt(np.array(history.history["{}_output_loss".format(pred)])), label = "training", linewidth = 0.5)
         plt.plot(np.sqrt(np.array(history.history["val_{}_output_loss".format(pred)])), label = "validation", linewidth = 0.5)
-        plt.ylim((0.01, 0.5))
+        plt.ylim((0.01, 1.))
         plt.yscale('log')
     elif pred == "en" or pred == "sh":
         plt.plot(np.sqrt(np.array(history.history["{}_output_loss".format(pred)])), label = "training", linewidth = 0.5)
         plt.plot(np.sqrt(np.array(history.history["val_{}_output_loss".format(pred)])), label = "validation", linewidth = 0.5)
-        plt.ylim((0.01, 5))
+        plt.ylim((0.01, 10.))
         plt.yscale('log')
     elif pred == "tt" or pred == "rt" or pred == "ze":
         plt.plot(np.degrees(np.sqrt(np.array(history.history["{}_output_loss".format(pred)]))), label = "training", linewidth = 0.5)
         plt.plot(np.degrees(np.sqrt(np.array(history.history["val_{}_output_loss".format(pred)]))), label = "validation", linewidth = 0.5)
-        plt.ylim((0.01, 45))
+        plt.ylim((0.01, 100))
         plt.yscale('log')
     elif pred == "total":
         plt.plot(np.array(history.history["loss"]), label = "training", linewidth = 0.5)
         plt.plot(np.array(history.history["val_loss"]), label = "validation", linewidth = 0.5)
-        plt.ylim((0.01, 45))
+        plt.ylim((0.01, 1000))
         plt.yscale('log')
     elif pred == "combine":
         plt.plot(np.array(history.history["loss"]), label = "loss", linewidth = 1)
         plt.plot(100. * np.array(history.history["rr_output_loss"]), label = "rr_output_loss", linewidth = 1)
-        plt.plot(100. * np.array(history.history["zz_output_loss"]), label = "zz_output_loss", linewidth = 1)
         plt.plot(10000. * np.array(history.history["cos_output_loss"]), label = "cos_output_loss", linewidth = 1)
         plt.plot(10000. * np.array(history.history["sin_output_loss"]), label = "sin_output_loss", linewidth = 1)
         plt.plot(100. * np.array(history.history["cosAz_output_loss"]), label = "cosAz_output_loss", linewidth = 1)
@@ -128,19 +95,24 @@ def plotLearn(pred):
         plt.plot(100. * np.array(history.history["ze_output_loss"]), label = "ze_output_loss", linewidth = 1)
         plt.ylim((0.01, 1000))
         plt.yscale('log')
-    plt.title("train on {} samples\nvalidate on {} samples\n{}".format(len(y_train), len(y_val), postFix))        
+    plt.title("train on {} samples\nvalidate on {} samples\n{}layers{}nodes{}epochs{}batch".format(len(y_train), len(y_val), layers, nodes, epochs, batch))        
     plt.legend()
     plt.grid(True)
-    plt.xlabel("epoch")
+    plt.xlabel("epochs")
     plt.ylabel("{}_loss".format(pred))
     plt.tight_layout()
-    plt.savefig("./plots/nnRecon/loss_{}_{}train0test0.pdf".format(postFix, pred))
+    plt.savefig("./plots/nnRecon/loss_{}layers{}nodes{}epochs{}batch_{}.pdf".format(layers, nodes, epochs, batch, pred))
     plt.clf()
 
-Energies = np.array([16.5, 17.0, 17.5, 18, 18.5, 19.0, 19.5, 20.])
-postFix = sys.argv[-1]
-print("Modeling: {}".format(postFix))
-Pred = sys.argv[-2]
+
+#Energies = np.array([16.5, 17.0, 17.5, 18, 18.5, 19.0, 19.5, 20.])
+Energies = np.array([16.5])
+batch = int(sys.argv[-1])
+epochs = int(sys.argv[-2])
+nodes = int(sys.argv[-3])
+layers = int(sys.argv[-4])
+print("Modeling: {} layers, {} nodes, {} epochs, {} batch".format(layers, nodes, epochs, batch))
+Pred = sys.argv[-5]
 print("Ploting: {}".format(Pred))
 inFile = h5py.File(sys.argv[1], 'r')
 print("Reading " + str(sys.argv[1]))
@@ -154,6 +126,7 @@ inelasticity = np.array(inFile['inelasticity'])
 interaction_type = np.array(inFile['interaction_type'])
 azimuths = np.array(inFile['azimuths'])
 zeniths = np.array(inFile['zeniths'])
+SNRs = np.array(inFile['station_101']['SNRs'])
 max_amp_ray_solution = np.array(inFile['station_101']['max_amp_ray_solution'])
 ray_tracing_solution_type = np.array(inFile['station_101']['ray_tracing_solution_type'])
 travel_times = np.array(inFile['station_101']['travel_times'])
@@ -163,7 +136,7 @@ launch_vectors = np.array(inFile['station_101']['launch_vectors'])
 polarization = np.array(inFile['station_101']['polarization'])
 antenna_positions = inFile['station_101'].attrs['antenna_positions']
 Vrms = inFile.attrs['Vrms']
-for i in range(2, len(sys.argv) - 2):
+for i in range(2, len(sys.argv) - 5):
     inFile = h5py.File(sys.argv[i], 'r')
     print("Reading " + str(sys.argv[i]))
     event_ids = np.append(event_ids, np.array(inFile['event_ids']) + ((i - 2) / 8 + 1) * 10**5)
@@ -176,6 +149,7 @@ for i in range(2, len(sys.argv) - 2):
     interaction_type = np.append(interaction_type, np.array(inFile['interaction_type']))
     azimuths = np.append(azimuths, np.array(inFile['azimuths']))
     zeniths = np.append(zeniths, np.array(inFile['zeniths']))
+    SNRs = np.append(SNRs, np.array(inFile['station_101']['SNRs']))
     max_amp_ray_solution = np.append(max_amp_ray_solution, np.array(inFile['station_101']['max_amp_ray_solution']), axis = 0)
     ray_tracing_solution_type = np.append(ray_tracing_solution_type, np.array(inFile['station_101']['ray_tracing_solution_type']), axis = 0)
     travel_times = np.append(travel_times, np.array(inFile['station_101']['travel_times']), axis = 0)
@@ -187,14 +161,20 @@ for i in range(2, len(sys.argv) - 2):
 strNum = 4
 channelPerStr = 4
 evtNum = len(event_ids)
+interaction = np.zeros((evtNum, ), dtype = int)
+for i in range(evtNum):
+    if interaction_type[i] == b'cc':
+        interaction[i] = 1
 shower_axis = -1.0 * hp.spherical_to_cartesian(zeniths, azimuths)
-viewing_angles = np.zeros((evtNum, strNum * channelPerStr, 2))
-viewing_angles[:, 0, 0] = np.array([hp.get_angle(x, y) for x, y in zip(shower_axis, launch_vectors[:, 0, 0])])
-viewing_angles[:, 0, 1] = np.array([hp.get_angle(x, y) for x, y in zip(shower_axis, launch_vectors[:, 0, 1])])
-for i in range(1, strNum * channelPerStr):
-    viewing_angles[:, i, 0] = np.array([hp.get_angle(x, y) for x, y in zip(shower_axis, launch_vectors[:, i, 0])])
-    viewing_angles[:, i, 1] = np.array([hp.get_angle(x, y) for x, y in zip(shower_axis, launch_vectors[:, i, 1])])
-cone_angles = np.zeros((evtNum, strNum * channelPerStr, 2))
+view_angles = np.zeros((evtNum, channelPerStr * strNum, 2))
+view_angles[:, 0, 0] = np.array([hp.get_angle(x, y) for x, y in zip(shower_axis, launch_vectors[:, 0, 0])])
+view_angles[:, 0, 1] = np.array([hp.get_angle(x, y) for x, y in zip(shower_axis, launch_vectors[:, 0, 1])])
+for i in range(1, channelPerStr * strNum):
+    view_angles[:, i, 0] = np.array([hp.get_angle(x, y) for x, y in zip(shower_axis, launch_vectors[:, i, 0])])
+    view_angles[:, i, 1] = np.array([hp.get_angle(x, y) for x, y in zip(shower_axis, launch_vectors[:, i, 1])])
+cone_angles = np.zeros((evtNum, channelPerStr * strNum, 2))
+xHat = np.array([1., 0., 0.])
+yHat = np.array([0., 1., 0.])
 zHat = np.array([0., 0., 1.])
 launch_vectors_dir = launch_vectors[:, 0, 0, :]
 launch_vectors_ref = launch_vectors[:, 0, 1, :]
@@ -208,7 +188,7 @@ cone_angles[:, 0, 0] = np.arccos(np.sum(launchOnCone_dir * zOnCone, axis = 1)) *
 launchOnCone_ref = launch_vectors_ref - shower_axis * np.sum(launch_vectors_ref * shower_axis, axis = 1).reshape((shower_axis.shape[0], 1))
 launchOnCone_ref = launchOnCone_ref / np.linalg.norm(launchOnCone_ref, axis = 1).reshape((launchOnCone_ref.shape[0], 1))
 cone_angles[:, 0, 1] = np.arccos(np.sum(launchOnCone_ref * zOnCone, axis = 1)) * np.sign(np.sum(launchOnCone_ref * yOnCone, axis = 1))
-for i in range(1, strNum * channelPerStr):
+for i in range(1, channelPerStr * strNum):
     launch_vectors_dir = launch_vectors[:, i, 0, :]
     launch_vectors_ref = launch_vectors[:, i, 1, :]
     yOnCone = np.cross(zHat, shower_axis)
@@ -224,10 +204,21 @@ for i in range(1, strNum * channelPerStr):
 ice = medium.southpole_2015()
 n_index = np.array([ice.get_index_of_refraction(x) for x in np.array([xx, yy, zz]).T])
 cherenkov = np.arccos(1. / n_index)
-hAmp = np.sign(np.multiply(polarization[:, :, :, 0], polarization[:, :, :, 1])) * np.sqrt(np.add(np.square(polarization[:, :, :, 0]), np.square(polarization[:, :, :, 1])))
-vAmp = polarization[:, :, :, 2]
-ratio = np.arctan2(hAmp, vAmp)
-showerEnergies = np.round(np.log10(np.where((np.abs(flavors) == 12) & (interaction_type == "cc"), 1., inelasticity) * energies), 2)
+yOnCone = np.cross(zHat, receive_vectors)
+yOnCone = yOnCone / np.linalg.norm(yOnCone, axis = 3).reshape(yOnCone.shape[0], yOnCone.shape[1], yOnCone.shape[2], 1)
+zOnCone = np.cross(receive_vectors, yOnCone)
+zOnCone = zOnCone / np.linalg.norm(zOnCone, axis = 3).reshape(zOnCone.shape[0], zOnCone.shape[1], zOnCone.shape[2], 1)
+hAmp = np.sum(polarization * yOnCone, axis = -1)
+vAmp = np.sum(polarization * zOnCone, axis = -1)
+pol_angles = np.arctan2(hAmp, vAmp)
+pol_angles = np.where(pol_angles < 0, pol_angles + 2. * np.pi, pol_angles)
+rec_theta = np.arccos(np.sum(receive_vectors * zHat, axis = -1))
+rec_phi = np.arctan2(np.sum(receive_vectors * yHat, axis = -1), np.sum(receive_vectors * xHat, axis = -1))
+rec_phi = np.where(rec_phi < 0, rec_phi + 2. * np.pi, rec_phi)
+pol_theta = np.arccos(np.sum(polarization * zHat, axis = -1))
+pol_phi = np.arctan2(np.sum(polarization * yHat, axis = -1), np.sum(polarization * xHat, axis = -1))
+pol_phi = np.where(pol_phi < 0, pol_phi + 2. * np.pi, pol_phi)
+showerEnergies = np.round(np.log10(np.where((np.abs(flavors) == 12) & (interaction == 1), 1., inelasticity) * energies), 2)
 energies = np.round(np.log10(energies), 1)
 zz = -zz #use positive depth as under surface
 rr = np.sqrt(np.square(xx) + np.square(yy))
@@ -236,7 +227,7 @@ pp = np.arctan2(yy, xx)
 pp = np.where(pp < 0, pp + 2 * np.pi, pp)
 dd = np.sqrt(np.square(rr) + np.square(zz - 200.))
 rt, rp = hp.cartesian_to_spherical(receive_vectors[:, :, 0, 0].flatten(), receive_vectors[:, :, 0, 1].flatten(), receive_vectors[:, :, 0, 2].flatten())#receive_vectors[evt, chan, dir/ref, xyz]
-rt = -1. * np.mean(rt.reshape(receive_vectors.shape[0], strNum * channelPerStr), axis = 1) + np.pi / 2.
+rt = -1. * np.mean(rt.reshape(receive_vectors.shape[0], channelPerStr * strNum), axis = 1) + np.pi / 2.
 cos = xx / rr
 sin = yy / rr
 cosAz = np.cos(azimuths)
@@ -244,56 +235,96 @@ sinAz = np.sin(azimuths)
 
 #nn data cleaning
 print("Data cleaning ...")
-travel_times = travel_times.reshape(travel_times.shape[0] * strNum * channelPerStr, 2)
+travel_times = travel_times.reshape(travel_times.shape[0] * channelPerStr * strNum, 2)
 Filter = travel_times[:, 0] < travel_times[:, 1]
 travel_times_dir = np.where(Filter, travel_times[:, 0], travel_times[:, 1])
 travel_times_ref = np.where(Filter, travel_times[:, 1], travel_times[:, 0])
-travel_times_dir = travel_times_dir.reshape(int(travel_times_dir.shape[0] / strNum / channelPerStr), channelPerStr, strNum)
-travel_times_ref = travel_times_ref.reshape(int(travel_times_ref.shape[0] / strNum / channelPerStr), channelPerStr, strNum)
+travel_times_dir = travel_times_dir.reshape(int(travel_times_dir.shape[0] / channelPerStr / strNum), channelPerStr, strNum)
+travel_times_ref = travel_times_ref.reshape(int(travel_times_ref.shape[0] / channelPerStr / strNum), channelPerStr, strNum)
 chan0TimeDir = travel_times_dir[:, 0, 0].reshape((travel_times_dir.shape[0], 1, 1)) + 100.
 travel_times_dir -= chan0TimeDir
-travel_times_dir = normalize(travel_times_dir)
-travel_times_dir_mask = (~np.isnan(travel_times_dir)).astype(float)
 travel_times_ref -= chan0TimeDir
-travel_times_ref = normalize(travel_times_ref)
-travel_times_ref_mask = (~np.isnan(travel_times_ref)).astype(float)
-max_amp_ray_solution = max_amp_ray_solution.reshape(max_amp_ray_solution.shape[0] * strNum * channelPerStr, 2)
+max_amp_ray_solution = np.absolute(max_amp_ray_solution)
+max_amp_ray_solution = max_amp_ray_solution.reshape(max_amp_ray_solution.shape[0] * channelPerStr * strNum, 2)
 max_amp_ray_solution_dir = np.where(Filter, max_amp_ray_solution[:, 0], max_amp_ray_solution[:, 1])
 max_amp_ray_solution_ref = np.where(Filter, max_amp_ray_solution[:, 1], max_amp_ray_solution[:, 0])
-max_amp_ray_solution_dir = max_amp_ray_solution_dir.reshape(int(max_amp_ray_solution_dir.shape[0] / strNum / channelPerStr), channelPerStr, strNum)
-max_amp_ray_solution_ref = max_amp_ray_solution_ref.reshape(int(max_amp_ray_solution_ref.shape[0] / strNum / channelPerStr), channelPerStr, strNum)
+max_amp_ray_solution_dir = max_amp_ray_solution_dir.reshape(int(max_amp_ray_solution_dir.shape[0] / channelPerStr / strNum), channelPerStr, strNum)
+max_amp_ray_solution_ref = max_amp_ray_solution_ref.reshape(int(max_amp_ray_solution_ref.shape[0] / channelPerStr / strNum), channelPerStr, strNum)
+pol_angles = pol_angles.reshape(pol_angles.shape[0] * channelPerStr * strNum, 2)
+pol_angles_dir = np.where(Filter, pol_angles[:, 0], pol_angles[:, 1])
+pol_angles_ref = np.where(Filter, pol_angles[:, 1], pol_angles[:, 0])
+pol_angles_dir = pol_angles_dir.reshape(int(pol_angles_dir.shape[0] / channelPerStr / strNum), channelPerStr, strNum)
+pol_angles_ref = pol_angles_ref.reshape(int(pol_angles_ref.shape[0] / channelPerStr / strNum), channelPerStr, strNum)
+hAmp = hAmp.reshape(hAmp.shape[0] * channelPerStr * strNum, 2)
+hAmp_dir = np.where(Filter, hAmp[:, 0], hAmp[:, 1])
+hAmp_ref = np.where(Filter, hAmp[:, 1], hAmp[:, 0])
+hAmp_dir = hAmp_dir.reshape(int(hAmp_dir.shape[0] / channelPerStr / strNum), channelPerStr, strNum)
+hAmp_ref = hAmp_ref.reshape(int(hAmp_ref.shape[0] / channelPerStr / strNum), channelPerStr, strNum)
+vAmp = vAmp.reshape(vAmp.shape[0] * channelPerStr * strNum, 2)
+vAmp_dir = np.where(Filter, vAmp[:, 0], vAmp[:, 1])
+vAmp_ref = np.where(Filter, vAmp[:, 1], vAmp[:, 0])
+vAmp_dir = vAmp_dir.reshape(int(vAmp_dir.shape[0] / channelPerStr / strNum), channelPerStr, strNum)
+vAmp_ref = vAmp_ref.reshape(int(vAmp_ref.shape[0] / channelPerStr / strNum), channelPerStr, strNum)
+max_amp_ray_solution_dir[:, 0:2, :] = max_amp_ray_solution_dir[:, 0:2, :] * np.sign(vAmp_dir[:, 0:2, :])
+max_amp_ray_solution_dir[:, 2:4, :] = max_amp_ray_solution_dir[:, 2:4, :] * np.sign(hAmp_dir[:, 2:4, :])
+max_amp_ray_solution_ref[:, 0:2, :] = max_amp_ray_solution_ref[:, 0:2, :] * np.sign(vAmp_ref[:, 0:2, :])
+max_amp_ray_solution_ref[:, 2:4, :] = max_amp_ray_solution_ref[:, 2:4, :] * np.sign(hAmp_ref[:, 2:4, :])
+ratio_amp_dir = np.arctan2(max_amp_ray_solution_dir[:, 2:4, :], max_amp_ray_solution_dir[:, 0:2, :])
+ratio_amp_dir = np.where(ratio_amp_dir < 0, ratio_amp_dir + 2. * np.pi, ratio_amp_dir)
+ratio_amp_ref = np.arctan2(max_amp_ray_solution_dir[:, 2:4, :], max_amp_ray_solution_dir[:, 0:2, :])
+ratio_amp_ref = np.where(ratio_amp_ref < 0, ratio_amp_ref + 2. * np.pi, ratio_amp_ref)
+ratio_amp_dir = np.repeat(ratio_amp_dir, 2, axis = 0).reshape(ratio_amp_dir.shape[0], channelPerStr, strNum)
+ratio_amp_ref = np.repeat(ratio_amp_ref, 2, axis = 0).reshape(ratio_amp_ref.shape[0], channelPerStr, strNum)
+max_amp_ray_solution_dir[:, 0:2, :] = max_amp_ray_solution_dir[:, 0:2, :] * np.sign(vAmp_dir[:, 0:2, :])
+max_amp_ray_solution_dir[:, 2:4, :] = max_amp_ray_solution_dir[:, 2:4, :] * np.sign(hAmp_dir[:, 2:4, :])
+max_amp_ray_solution_ref[:, 0:2, :] = max_amp_ray_solution_ref[:, 0:2, :] * np.sign(vAmp_ref[:, 0:2, :])
+max_amp_ray_solution_ref[:, 2:4, :] = max_amp_ray_solution_ref[:, 2:4, :] * np.sign(hAmp_ref[:, 2:4, :])
 max_amp_ray_solution_dir = normalize(max_amp_ray_solution_dir)
-max_amp_ray_solution_dir_mask = (~np.isnan(max_amp_ray_solution_dir)).astype(float)
 max_amp_ray_solution_ref = normalize(max_amp_ray_solution_ref)
-max_amp_ray_solution_ref_mask = (~np.isnan(max_amp_ray_solution_ref)).astype(float)
-ratio = ratio.reshape(ratio.shape[0] * strNum * channelPerStr, 2)
-ratio_dir = np.where(Filter, ratio[:, 0], ratio[:, 1])
-ratio_ref = np.where(Filter, ratio[:, 1], ratio[:, 0])
-ratio_dir = ratio_dir.reshape(int(ratio_dir.shape[0] / strNum / channelPerStr), channelPerStr, strNum)
-ratio_ref = ratio_ref.reshape(int(ratio_ref.shape[0] / strNum / channelPerStr), channelPerStr, strNum)
-cone_angles = cone_angles.reshape(cone_angles.shape[0] * strNum * channelPerStr, 2)
-viewing_angles = viewing_angles.reshape(viewing_angles.shape[0] * strNum * channelPerStr, 2)
+cone_angles = cone_angles.reshape(cone_angles.shape[0] * channelPerStr * strNum, 2)
+view_angles = view_angles.reshape(view_angles.shape[0] * channelPerStr * strNum, 2)
+rec_theta = rec_theta.reshape(rec_theta.shape[0] * channelPerStr * strNum, 2)
+rec_phi = rec_phi.reshape(rec_phi.shape[0] * channelPerStr * strNum, 2)
 cone_angles_dir = np.where(Filter, cone_angles[:, 0], cone_angles[:, 1])
 cone_angles_ref = np.where(Filter, cone_angles[:, 1], cone_angles[:, 0])
-viewing_angles_dir = np.where(Filter, viewing_angles[:, 0], viewing_angles[:, 1])
-viewing_angles_ref = np.where(Filter, viewing_angles[:, 1], viewing_angles[:, 0])
-cone_angles_dir = cone_angles_dir.reshape(int(cone_angles_dir.shape[0] / strNum / channelPerStr), channelPerStr, strNum)
-cone_angles_ref = cone_angles_ref.reshape(int(cone_angles_ref.shape[0] / strNum / channelPerStr), channelPerStr, strNum)
-viewing_angles_dir = viewing_angles_dir.reshape(int(viewing_angles_dir.shape[0] / strNum / channelPerStr), channelPerStr, strNum)
-viewing_angles_ref = viewing_angles_ref.reshape(int(viewing_angles_ref.shape[0] / strNum / channelPerStr), channelPerStr, strNum)
-viewAngle_dir = viewing_angles_dir[:, 0, 0].copy()
-viewAngle_ref = viewing_angles_ref[:, 0, 0].copy()
+view_angles_dir = np.where(Filter, view_angles[:, 0], view_angles[:, 1])
+view_angles_ref = np.where(Filter, view_angles[:, 1], view_angles[:, 0])
+rec_theta_dir = np.where(Filter, rec_theta[:, 0], rec_theta[:, 1])
+rec_theta_ref = np.where(Filter, rec_theta[:, 1], rec_theta[:, 0])
+rec_phi_dir = np.where(Filter, rec_phi[:, 0], rec_phi[:, 1])
+rec_phi_ref = np.where(Filter, rec_phi[:, 1], rec_phi[:, 0])
+cone_angles_dir = cone_angles_dir.reshape(int(cone_angles_dir.shape[0] / channelPerStr / strNum), channelPerStr, strNum)
+cone_angles_ref = cone_angles_ref.reshape(int(cone_angles_ref.shape[0] / channelPerStr / strNum), channelPerStr, strNum)
+view_angles_dir = view_angles_dir.reshape(int(view_angles_dir.shape[0] / channelPerStr / strNum), channelPerStr, strNum)
+view_angles_ref = view_angles_ref.reshape(int(view_angles_ref.shape[0] / channelPerStr / strNum), channelPerStr, strNum)
+rec_theta_dir = rec_theta_dir.reshape(int(rec_theta_dir.shape[0] / channelPerStr / strNum), channelPerStr, strNum)
+rec_theta_ref = rec_theta_ref.reshape(int(rec_theta_ref.shape[0] / channelPerStr / strNum), channelPerStr, strNum)
+rec_phi_dir = rec_phi_dir.reshape(int(rec_phi_dir.shape[0] / channelPerStr / strNum), channelPerStr, strNum)
+rec_phi_ref = rec_phi_ref.reshape(int(rec_phi_ref.shape[0] / channelPerStr / strNum), channelPerStr, strNum)
+viewAngle_dir = view_angles_dir[:, 0, 0].copy()
+viewAngle_ref = view_angles_ref[:, 0, 0].copy()
 coneAngle_dir = cone_angles_dir[:, 0, 0].copy()
 coneAngle_ref = cone_angles_ref[:, 0, 0].copy()
-#inputs
-x = np.stack((travel_times_dir, travel_times_ref, max_amp_ray_solution_dir, max_amp_ray_solution_ref), axis = 3)
+x = np.stack((travel_times_dir, travel_times_ref, max_amp_ray_solution_dir, max_amp_ray_solution_ref, ratio_amp_dir, ratio_amp_ref, view_angles_dir, view_angles_ref, cone_angles_dir, cone_angles_ref, rec_theta_dir, rec_theta_ref, rec_phi_dir, rec_phi_ref), axis = 3)
 y = np.vstack((rr, zz, dd, pp, tt, cos, sin, azimuths, zeniths, energies, cosAz, sinAz, showerEnergies, xx, yy, flavors, viewAngle_dir, viewAngle_ref, coneAngle_dir, coneAngle_ref))
 y = np.transpose(y)
 maskY = np.isnan(y).any(axis = 1)
 maskX = np.isnan(x).any(axis = 1).any(axis = 1).any(axis = 1)
-ray_tracing_solution_type = ray_tracing_solution_type.reshape((ray_tracing_solution_type.shape[0], ray_tracing_solution_type.shape[1] * 2))
-maskSolutionType = np.where(ray_tracing_solution_type == 3, True, False).any(axis = 1)
-mask = np.logical_or(maskX, maskY)
+#maskSNR = np.where(SNRs < 1., True, False)
+#maskEN = np.where(energies < 17., True, False)
+#maskEM = np.logical_and(np.logical_or(flavors == 12, flavors == -12), interaction == 1)
+cone_angles_dir = cone_angles_dir.reshape(cone_angles_dir.shape[0] * channelPerStr * strNum, 1)
+cone_angles_ref = cone_angles_ref.reshape(cone_angles_ref.shape[0] * channelPerStr * strNum, 1)
+maskCone = np.where((cone_angles_dir > np.nanpercentile(cone_angles_dir, 90)) | (cone_angles_dir < np.nanpercentile(cone_angles_dir, 10)) | (cone_angles_ref > np.nanpercentile(cone_angles_ref, 90)) | (cone_angles_ref < np.nanpercentile(cone_angles_ref, 10)), True, False).reshape(int(cone_angles_dir.shape[0] / channelPerStr / strNum), channelPerStr, strNum).any(axis = 1).any(axis = 1)
+cone_angles_dir = cone_angles_dir.reshape(int(cone_angles_dir.shape[0] / channelPerStr / strNum), channelPerStr, strNum)
+cone_angles_ref = cone_angles_ref.reshape(int(cone_angles_ref.shape[0] / channelPerStr / strNum), channelPerStr, strNum)
+view_angles_dir = view_angles_dir.reshape(view_angles_dir.shape[0] * channelPerStr * strNum, 1)
+view_angles_ref = view_angles_ref.reshape(view_angles_ref.shape[0] * channelPerStr * strNum, 1)
+maskView = np.where((view_angles_dir > np.nanpercentile(view_angles_dir, 90)) | (view_angles_dir < np.nanpercentile(view_angles_dir, 10)) | (view_angles_ref > np.nanpercentile(view_angles_ref, 90)) | (view_angles_ref < np.nanpercentile(view_angles_ref, 10)), True, False).reshape(int(view_angles_dir.shape[0] / channelPerStr / strNum), channelPerStr, strNum).any(axis = 1).any(axis = 1)
+view_angles_dir = view_angles_dir.reshape(int(view_angles_dir.shape[0] / channelPerStr / strNum), channelPerStr, strNum)
+view_angles_ref = view_angles_ref.reshape(int(view_angles_ref.shape[0] / channelPerStr / strNum), channelPerStr, strNum)
+mask = np.logical_or(np.logical_or(np.logical_or(maskX, maskY), maskCone), maskView)
+#mask = np.logical_or(maskX, maskY)
 x = x[~mask]
 y = y[~mask]
 x_train, x_test, y_train, y_test = train_test_split(x, y, test_size = 0.1, random_state = 1, shuffle = True)
@@ -306,33 +337,88 @@ x_train = (x_train - xMean) / xStd
 x_val = (x_val - xMean) / xStd
 x_test = (x_test - xMean) / xStd
 
+if Pred == "train":
+    print("Feature selecting ...")
+    data = {"t_dir[1, 0]": x_test[:, 1, 0, 0],
+            "t_ref[1, 0]": x_test[:, 1, 0, 1],
+            "a_dir[1, 0]": x_test[:, 1, 0, 2],
+            "a_ref[1, 0]": x_test[:, 1, 0, 3],
+            "r_dir[1, 0]": x_test[:, 1, 0, 4],
+            "r_ref[1, 0]": x_test[:, 1, 0, 5],
+            "v_dir[1, 0]": x_test[:, 1, 0, 6],
+            "v_ref[1, 0]": x_test[:, 1, 0, 7],
+            "c_dir[1, 0]": x_test[:, 1, 0, 8],
+            "c_ref[1, 0]": x_test[:, 1, 0, 9],
+            "t_dir[2, 0]": x_test[:, 2, 0, 0],
+            "t_ref[2, 0]": x_test[:, 2, 0, 1],
+            "a_dir[2, 0]": x_test[:, 2, 0, 2],
+            "a_ref[2, 0]": x_test[:, 2, 0, 3],
+            "r_dir[2, 0]": x_test[:, 2, 0, 4],
+            "r_ref[2, 0]": x_test[:, 2, 0, 5],
+            "v_dir[2, 0]": x_test[:, 2, 0, 6],
+            "v_ref[2, 0]": x_test[:, 2, 0, 7],
+            "c_dir[2, 0]": x_test[:, 2, 0, 8],
+            "c_ref[2, 0]": x_test[:, 2, 0, 9],
+            "t_dir[0, 1]": x_test[:, 0, 1, 0],
+            "t_ref[0, 1]": x_test[:, 0, 1, 1],
+            "a_dir[0, 1]": x_test[:, 0, 1, 2],
+            "a_ref[0, 1]": x_test[:, 0, 1, 3],
+            "r_dir[0, 1]": x_test[:, 0, 1, 4],
+            "r_ref[0, 1]": x_test[:, 0, 1, 5],
+            "v_dir[0, 1]": x_test[:, 0, 1, 6],
+            "v_ref[0, 1]": x_test[:, 0, 1, 7],
+            "c_dir[0, 1]": x_test[:, 0, 1, 8],
+            "c_ref[0, 1]": x_test[:, 0, 1, 9],
+            "rr": y_test[:, 0],
+            "zz": y_test[:, 1],
+            "pp": y_test[:, 3],
+            "tt": y_test[:, 4],
+            "az": y_test[:, 7],
+            "ze": y_test[:, 8],
+            "sh": y_test[:, 12]}
+    df = pd.DataFrame(data, columns = ["t_dir[1, 0]", "t_ref[1, 0]", "a_dir[1, 0]", "a_ref[1, 0]", "r_dir[1, 0]", "r_ref[1, 0]", "v_dir[1, 0]", "v_ref[1, 0]", "c_dir[1, 0]", "c_ref[1, 0]", "t_dir[2, 0]", "t_ref[2, 0]", "a_dir[2, 0]", "a_ref[2, 0]", "r_dir[2, 0]", "r_ref[2, 0]", "v_dir[2, 0]", "v_ref[2, 0]", "c_dir[2, 0]", "c_ref[2, 0]", "t_dir[0, 1]", "t_ref[0, 1]", "a_dir[0, 1]", "a_ref[0, 1]", "r_dir[0, 1]", "r_ref[0, 1]", "v_dir[0, 1]", "v_ref[0, 1]", "c_dir[0, 1]", "c_ref[0, 1]", "rr", "zz", "pp", "tt", "az", "ze", "sh"])
+    
+    pd.plotting.scatter_matrix(df[:200], figsize = (60, 60), alpha = 0.6, diagonal = "hist")
+    plt.savefig("./plots/nnRecon/scat_{}layers{}nodes{}epochs{}batch.pdf".format(layers, nodes, epochs, batch))
+    plt.clf()
+    
+    plt.subplots(figsize = (6.4, 4.8))
+    corrMatrix = df.corr()
+    sbn.heatmap(corrMatrix, vmin = -1., vmax = 1., cmap = cm.RdBu)
+    plt.tight_layout()
+    plt.savefig("./plots/nnRecon/corr_{}layers{}nodes{}epochs{}batch.pdf".format(layers, nodes, epochs, batch))
+    plt.clf()
+
+x_train = np.stack((x_train[:, :, :, 0], x_train[:, :, :, 1], x_train[:, :, :, 2], x_train[:, :, :, 3], x_train[:, :, :, 4], x_train[:, :, :, 5]), axis = -1)
+x_val = np.stack((x_val[:, :, :, 0], x_val[:, :, :, 1], x_val[:, :, :, 2], x_val[:, :, :, 3], x_val[:, :, :, 4], x_val[:, :, :, 5]), axis = -1)
+x_test = np.stack((x_test[:, :, :, 0], x_test[:, :, :, 1], x_test[:, :, :, 2], x_test[:, :, :, 3], x_test[:, :, :, 4], x_test[:, :, :, 5]), axis = -1)
+
 #nn setup
 print("Setting up ...")
-inputs = Input(shape = (channelPerStr, strNum, 4))
-shares = share(postFix, inputs)
-rr_branch = separate(postFix, "rr", shares)
-zz_branch = separate(postFix, "zz", shares)
-tt_branch = separate(postFix, "tt", shares)
-cos_branch = separate(postFix, "cos", shares)
-sin_branch = separate(postFix, "sin", shares)
-ze_branch = separate(postFix, "ze", shares)
-cosAz_branch = separate(postFix, "cosAz", shares)
-sinAz_branch = separate(postFix, "sinAz", shares)
-sh_branch = separate(postFix, "sh", shares)
-model = Model(inputs = inputs, outputs = [rr_branch, zz_branch, tt_branch, cos_branch, sin_branch, ze_branch, cosAz_branch, sinAz_branch, sh_branch])
-model.compile(loss = {"rr_output":my_mspe, "zz_output":my_mspe, "tt_output":"mse", "cos_output":"mse", "sin_output":"mse", "ze_output":"mse", "cosAz_output":"mse", "sinAz_output":"mse", "sh_output":"mse"}, optimizer = "adam", loss_weights = {"rr_output":100., "zz_output":100., "tt_output":10000., "cos_output":10000., "sin_output":10000., "ze_output":100., "cosAz_output":100., "sinAz_output":100., "sh_output":1.})
-checkpoint = ModelCheckpoint("./plots/nnRecon/allPairsWeights_" + str(postFix) + "train0test0.hdf5", save_best_only = True, verbose = 1, monitor = 'val_loss', mode = 'min')
+inputs = Input(shape = (x_train.shape[1], x_train.shape[2], x_train.shape[3]))
+#shares = share(layers, inputs)
+rr_branch = separate(layers, "rr", inputs)
+tt_branch = separate(layers, "tt", inputs)
+cos_branch = separate(layers, "cos", inputs)
+sin_branch = separate(layers, "sin", inputs)
+ze_branch = separate(layers, "ze", inputs)
+cosAz_branch = separate(layers, "cosAz", inputs)
+sinAz_branch = separate(layers, "sinAz", inputs)
+sh_branch = separate(layers, "sh", inputs)
+model = Model(inputs = inputs, outputs = [rr_branch, tt_branch, cos_branch, sin_branch, ze_branch, cosAz_branch, sinAz_branch, sh_branch])
+model.compile(loss = {"rr_output":my_mspe, "tt_output":"mse", "cos_output":"mse", "sin_output":"mse", "ze_output":"mse", "cosAz_output":"mse", "sinAz_output":"mse", "sh_output":"mse"}, optimizer = "adam", loss_weights = {"rr_output":100., "tt_output":10000., "cos_output":10000., "sin_output":10000., "ze_output":100., "cosAz_output":100., "sinAz_output":100., "sh_output":1.})
+checkpoint = ModelCheckpoint("./plots/nnRecon/allPairsWeights_{}layers{}nodes{}epochs{}batch.hdf5".format(layers, nodes, epochs, batch), save_best_only = True, verbose = 1, monitor = 'val_loss', mode = 'min')
 model.summary()
-keras.utils.plot_model(model, "./plots/nnRecon/arch_{}train0test0.pdf".format(postFix), show_shapes = True)
+keras.utils.plot_model(model, "./plots/nnRecon/arch_{}layers{}nodes{}epochs{}batch.pdf".format(layers, nodes, epochs, batch), show_shapes = True)
 
 #nn training
 if Pred == "train":
     print("Training ...")
-    history = model.fit(x_train, [y_train[:, 0], y_train[:, 1], y_train[:, 4], y_train[:, 5], y_train[:, 6], y_train[:, 8], y_train[:, 10], y_train[:, 11], y_train[:, 12]], epochs = 50, batch_size = 128, verbose = 1, validation_data = (x_val, [y_val[:, 0], y_val[:, 1], y_val[:, 4], y_val[:, 5], y_val[:, 6], y_val[:, 8], y_val[:, 10], y_val[:, 11], y_val[:, 12]]), callbacks = [checkpoint, ReduceLROnPlateau(monitor = 'val_loss', factor = 0.2, verbose = 1, patience = 3)])
+    history = model.fit(x_train, [y_train[:, 0], y_train[:, 4], y_train[:, 5], y_train[:, 6], y_train[:, 8], y_train[:, 10], y_train[:, 11], y_train[:, 12]], epochs = epochs, batch_size = batch, verbose = 1, validation_data = (x_val, [y_val[:, 0], y_val[:, 4], y_val[:, 5], y_val[:, 6], y_val[:, 8], y_val[:, 10], y_val[:, 11], y_val[:, 12]]), callbacks = [checkpoint, ReduceLROnPlateau(monitor = 'val_loss', factor = 0.2, verbose = 1, patience = 3)])
+    #print(history.history.keys())
     plotLearn("combine")
     plotLearn("total")
     plotLearn("rr")
-    plotLearn("zz")
     plotLearn("tt")
     plotLearn("cos")
     plotLearn("sin")
@@ -340,78 +426,133 @@ if Pred == "train":
     plotLearn("cosAz")
     plotLearn("sinAz")
     plotLearn("sh")
+
+    score_before = model.evaluate(x_test, [y_test[:, 0], y_test[:, 4], y_test[:, 5], y_test[:, 6], y_test[:, 8], y_test[:, 10], y_test[:, 11], y_test[:, 12]], batch_size = batch, verbose = 0)
+    test_pred = np.array(model.predict(x_test, batch_size = batch))
+    pp_test = np.degrees(y_test[:, 3].reshape((len(y_test), 1)))
+    pp_test_pred = np.arctan2(test_pred[3], test_pred[2])
+    pp_test_pred = np.degrees(np.where(pp_test_pred < 0, pp_test_pred + 2 * np.pi, pp_test_pred))
+    score_before.append(np.mean((pp_test - pp_test_pred) ** 2.))
+    az_test = np.degrees(y_test[:, 7].reshape((len(y_test), 1)))
+    az_test_pred = np.arctan2(test_pred[6], test_pred[5])
+    az_test_pred = np.degrees(np.where(az_test_pred < 0, az_test_pred + 2 * np.pi, az_test_pred))
+    score_before.append(np.mean((az_test - az_test_pred) ** 2.))
+    score_before.append(np.mean(((az_test - pp_test) - (az_test_pred - pp_test_pred)) ** 2.))
+    importance = []
+    for i in range(x_test.shape[3]):
+        for j in range(x_test.shape[2]):
+            for k in range(x_test.shape[1]):
+                origin = x_test[:, k, j, i].copy()
+                np.random.shuffle(x_test[:, k, j, i])
+                score_after = model.evaluate(x_test, [y_test[:, 0], y_test[:, 4], y_test[:, 5], y_test[:, 6], y_test[:, 8], y_test[:, 10], y_test[:, 11], y_test[:, 12]], batch_size = batch, verbose = 0)
+                test_pred = np.array(model.predict(x_test, batch_size = batch))
+                pp_test_pred = np.arctan2(test_pred[3], test_pred[2])
+                pp_test_pred = np.degrees(np.where(pp_test_pred < 0, pp_test_pred + 2 * np.pi, pp_test_pred))
+                score_after.append(np.mean((pp_test - pp_test_pred) ** 2.))
+                az_test_pred = np.arctan2(test_pred[6], test_pred[5])
+                az_test_pred = np.degrees(np.where(az_test_pred < 0, az_test_pred + 2 * np.pi, az_test_pred))
+                score_after.append(np.mean((az_test - az_test_pred) ** 2.))
+                score_after.append(np.mean(((az_test - pp_test) - (az_test_pred - pp_test_pred)) ** 2.))
+                importance.append([(l - m) / m for l, m in zip(score_after, score_before)])
+                x_test[:, k, j, i] = origin.copy()
+    importance = np.array(importance)
+    sbn.heatmap(importance, norm = LogNorm(vmin = 0.01, vmax = 100), linewidths = .5, linecolor = "black", cmap = cm.Blues)
+    xlabel = ["total", "rr", "tt", "cos", "sin", "ze", "cosAz", "sinAz", "sh", "pp", "az", "az - pp"]
+    plt.xticks(range(12), xlabel, rotation = "vertical")
+    ylabel = ["t_dir", "t_ref", "a_dir", "a_ref", "r_dir", "r_ref"]
+    plt.yticks(range(0, x_test.shape[1] * x_test.shape[2] * x_test.shape[3], x_test.shape[1] * x_test.shape[2]), ylabel, rotation = "vertical")
+    plt.tight_layout()
+    plt.savefig("./plots/nnRecon/importance_{}layers{}nodes{}epochs{}batch.pdf".format(layers, nodes, epochs, batch))
+    plt.clf()
     sys.exit(1)
 
-#nn analysis
-print("Making plots ...")
-model.load_weights("./plots/nnRecon/allPairsWeights_{}train0test0.hdf5".format(postFix))
-fl_train = y_train[:, 15].reshape((len(y_train), 1))
-fl_test = y_test[:, 15].reshape((len(y_test), 1))
+#nn predicting
+print("Making predictions ...")
+model.load_weights("./plots/nnRecon/allPairsWeights_{}layers{}nodes{}epochs{}batch.hdf5".format(layers, nodes, epochs, batch))
+#print(history.history.keys())
+train_pred = np.array(model.predict(x_train, batch_size = batch))
+test_pred = np.array(model.predict(x_test, batch_size = batch))
 rr_train = y_train[:, 0].reshape((len(y_train), 1))
 rr_test = y_test[:, 0].reshape((len(y_test), 1))
+rr_train_pred = train_pred[0]
+rr_test_pred = test_pred[0]
 zz_train = y_train[:, 1].reshape((len(y_train), 1))
 zz_test = y_test[:, 1].reshape((len(y_test), 1))
-en_train = y_train[:, 9]
-en_test = y_test[:, 9]
-az_train = np.degrees(y_train[:, 7].reshape((len(y_train), 1)))
-az_test = np.degrees(y_test[:, 7].reshape((len(y_test), 1)))
+tt_train = np.degrees(y_train[:, 4].reshape((len(y_train), 1)))
+tt_test = np.degrees(y_test[:, 4].reshape((len(y_test), 1)))
+tt_test_pred = np.degrees(test_pred[1])
+tt_train_pred = np.degrees(train_pred[1])
+pp_train = np.degrees(y_train[:, 3].reshape((len(y_train), 1)))
+pp_test = np.degrees(y_test[:, 3].reshape((len(y_test), 1)))
+pp_test_pred = np.arctan2(test_pred[3], test_pred[2])
+pp_test_pred = np.degrees(np.where(pp_test_pred < 0, pp_test_pred + 2 * np.pi, pp_test_pred))
+pp_train_pred = np.arctan2(train_pred[3], train_pred[2])
+pp_train_pred = np.degrees(np.where(pp_train_pred < 0, pp_train_pred + 2 * np.pi, pp_train_pred))
 ze_train = np.degrees(y_train[:, 8].reshape((len(y_train), 1)))
 ze_test = np.degrees(y_test[:, 8].reshape((len(y_test), 1)))
+ze_test_pred = np.degrees(test_pred[4])
+ze_train_pred = np.degrees(train_pred[4])
+az_train = np.degrees(y_train[:, 7].reshape((len(y_train), 1)))
+az_test = np.degrees(y_test[:, 7].reshape((len(y_test), 1)))
+az_test_pred = np.arctan2(test_pred[6], test_pred[5])
+az_test_pred = np.degrees(np.where(az_test_pred < 0, az_test_pred + 2 * np.pi, az_test_pred))
+az_train_pred = np.arctan2(train_pred[6], train_pred[5])
+az_train_pred = np.degrees(np.where(az_train_pred < 0, az_train_pred + 2 * np.pi, az_train_pred))
+sh_train = y_train[:, 12].reshape((len(y_train), 1))
+sh_test = y_test[:, 12].reshape((len(y_test), 1))
+sh_test_pred = test_pred[7]
+sh_train_pred = train_pred[7]
+en_train = y_train[:, 9]
+en_test = y_test[:, 9]
 xx_train = y_train[:, 13].reshape((len(y_train), 1))
 xx_test = y_test[:, 13].reshape((len(y_test), 1))
 yy_train = y_train[:, 14].reshape((len(y_train), 1))
 yy_test = y_test[:, 14].reshape((len(y_test), 1))
+fl_train = y_train[:, 15].reshape((len(y_train), 1))
+fl_test = y_test[:, 15].reshape((len(y_test), 1))
 viewAngle_dir_train = np.degrees(y_train[:, 16].reshape((len(y_train), 1)))
+viewAngle_dir_test = np.degrees(y_test[:, 16].reshape((len(y_test), 1)))
 viewAngle_ref_train = np.degrees(y_train[:, 17].reshape((len(y_train), 1)))
+viewAngle_ref_test = np.degrees(y_test[:, 17].reshape((len(y_test), 1)))
 coneAngle_dir_train = np.degrees(y_train[:, 18].reshape((len(y_train), 1)))
+coneAngle_dir_test = np.degrees(y_test[:, 18].reshape((len(y_test), 1)))
 coneAngle_ref_train = np.degrees(y_train[:, 19].reshape((len(y_train), 1)))
-
+coneAngle_ref_test = np.degrees(y_test[:, 19].reshape((len(y_test), 1)))
 if Pred == "cos" or Pred == "sin":
-    y_test_pred = np.arctan2(np.array(model.predict(x_test, batch_size = 128))[4], np.array(model.predict(x_test, batch_size = 128))[3])
-    y_test_pred = np.where(y_test_pred < 0, y_test_pred + 2 * np.pi, y_test_pred)
-    y_train_pred = np.arctan2(np.array(model.predict(x_train, batch_size = 128))[4], np.array(model.predict(x_train, batch_size = 128))[3])
-    y_train_pred = np.where(y_train_pred < 0, y_train_pred + 2 * np.pi, y_train_pred)
-    y_test = y_test[:, 3]
-    y_train = y_train[:, 3]
+    y_test_pred = pp_test_pred
+    y_train_pred = pp_train_pred
+    y_test = pp_test
+    y_train = pp_train
 elif Pred == "cosAz" or Pred == "sinAz":
-    y_test_pred = np.arctan2(np.array(model.predict(x_test, batch_size = 128))[7], np.array(model.predict(x_test, batch_size = 128))[6])
-    y_test_pred = np.where(y_test_pred < 0, y_test_pred + 2 * np.pi, y_test_pred)
-    y_train_pred = np.arctan2(np.array(model.predict(x_train, batch_size = 128))[7], np.array(model.predict(x_train, batch_size = 128))[6])
-    y_train_pred = np.where(y_train_pred < 0, y_train_pred + 2 * np.pi, y_train_pred)
-    y_test = y_test[:, 7]
-    y_train = y_train[:, 7]
+    y_test_pred = az_test_pred
+    y_train_pred = az_train_pred
+    y_test = az_test
+    y_train = az_train
 elif Pred == "rr":
-    y_test_pred = np.array(model.predict(x_test, batch_size = 128))[0]
-    y_train_pred = np.array(model.predict(x_train, batch_size = 128))[0]
-    y_test = y_test[:, 0]
-    y_train = y_train[:, 0]
-elif Pred == "zz":
-    y_test_pred = np.array(model.predict(x_test, batch_size = 128))[1]
-    y_train_pred = np.array(model.predict(x_train, batch_size = 128))[1]
-    y_test = y_test[:, 1]
-    y_train = y_train[:, 1]
+    y_test_pred = rr_test_pred
+    y_train_pred = rr_train_pred
+    y_test = rr_test
+    y_train = rr_train
 elif Pred == "tt":
-    y_test_pred = np.array(model.predict(x_test, batch_size = 128))[2]
-    y_train_pred = np.array(model.predict(x_train, batch_size = 128))[2]
-    y_test = y_test[:, 4]
-    y_train = y_train[:, 4]
+    y_test_pred = tt_test_pred
+    y_train_pred = tt_train_pred
+    y_test = tt_test
+    y_train = tt_train
 elif Pred == "ze":
-    y_test_pred = np.array(model.predict(x_test, batch_size = 128))[5]
-    y_train_pred = np.array(model.predict(x_train, batch_size = 128))[5]
-    y_test = y_test[:, 8]
-    y_train = y_train[:, 8]
+    y_test_pred = ze_test_pred
+    y_train_pred = ze_train_pred
+    y_test = ze_test
+    y_train = ze_train
 elif Pred == "sh":
-    y_test_pred = np.array(model.predict(x_test, batch_size = 128))[8]
-    y_train_pred = np.array(model.predict(x_train, batch_size = 128))[8]
-    y_test = y_test[:, 12]
-    y_train = y_train[:, 12]
+    y_test_pred = sh_test_pred
+    y_train_pred = sh_train_pred
+    y_test = sh_test
+    y_train = sh_train
 else:
     sys.exit(1)
-if Pred == "tt" or Pred == "cos" or Pred == "sin" or Pred == "ze" or Pred == "cosAz" or Pred == "sinAz":
-    y_test_pred = np.degrees(y_test_pred)
-    y_train_pred = np.degrees(y_train_pred)
-    y_train = np.degrees(y_train)
-    y_test = np.degrees(y_test)
+
+#nn plotting
+print("Making plots ...")
 meanPerEnergies = []
 sdPerEnergies = []
 meanPerEnergiesNoout = []
@@ -424,7 +565,7 @@ diff = np.array(y_test.reshape((len(y_test), 1)) - y_test_pred)
 if Pred == "cos" or Pred == "cosAz":
     diff = np.where(diff > 180., diff - 360., diff)
     diff = np.where(diff < -180., diff + 360., diff)
-if Pred == "zz" or Pred == "dd" or Pred == "rr":
+if Pred == "rr":
     outliers = np.where(np.abs(diff / y_test.reshape((len(y_test), 1))) > 0.5, True, False)
 elif Pred == "tt" or Pred == "rt" or Pred == "cos" or Pred == "sin" or Pred == "ze" or Pred == "cosAz" or Pred == "sinAz" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
     outliers = np.where(np.abs(diff) > 5., True, False)
@@ -434,7 +575,7 @@ elif Pred == "en" or Pred == "sh":
 #mean error 1dhist per energy
 plt.rc('font', size = 5)
 for i in range(len(Energies)):
-    if Pred == "zz" or Pred == "dd" or Pred == "rr":
+    if Pred == "rr":
         outSelect = outliers[en_test == Energies[i]]
         sdPerEnergies.append(np.std(diff[en_test == Energies[i]] / y_test[en_test == Energies[i]].reshape((len(y_test[en_test == Energies[i]]), 1))))
         meanPerEnergies.append(np.mean(diff[en_test == Energies[i]] / y_test[en_test == Energies[i]].reshape((len(y_test[en_test == Energies[i]]), 1))))
@@ -480,14 +621,14 @@ for i in range(len(Energies)):
         plt.xlabel("{}_error[log10(eV)]".format(Pred))
     plt.ylabel("{}_count".format(Pred))
     plt.grid(True)
-    plt.title("10^{:.3f} eV\ntrained on {} samples\ntested on {} samples\n{}_sd = {:.3f}\n{}_mean = {:.3f}\n{}".format(Energies[i], len(y_train[en_train == Energies[i]]), len(y_test[en_test == Energies[i]]), Pred, sdPerEnergiesNoout[i], Pred, meanPerEnergiesNoout[i], postFix))
+    plt.title("10^{:.3f} eV\ntrained on {} samples\ntested on {} samples\n{}_sd = {:.3f}\n{}_mean = {:.3f}\n{}layers{}nodes{}epochs{}batch".format(Energies[i], len(y_train[en_train == Energies[i]]), len(y_test[en_test == Energies[i]]), Pred, sdPerEnergiesNoout[i], Pred, meanPerEnergiesNoout[i], layers, nodes, epochs, batch))
 plt.tight_layout()
-plt.savefig("./plots/nnRecon/meanErrorPerEnergy_1dHist_{}_{}train0test0.pdf".format(postFix, Pred))
+plt.savefig("./plots/nnRecon/meanErrorPerEnergy_1dHist_{}layers{}nodes{}epochs{}batch_{}.pdf".format(layers, nodes, epochs, batch, Pred))
 plt.clf()
 
 #mean error 1dhist
 plt.rc('font', size = 10)
-if Pred == "zz" or Pred == "dd" or Pred == "rr":
+if Pred == "rr":
     me = np.mean(diff / y_test.reshape((len(y_test), 1)))
     sd = np.std(diff / y_test.reshape((len(y_test), 1)))
     meNoout = np.mean(diff[~outliers] / y_test.reshape((len(y_test), 1))[~outliers])
@@ -525,9 +666,9 @@ elif Pred == "sh":
     plt.xlabel("{}_error[log10(eV)]".format(Pred))
 plt.ylabel("{}_count".format(Pred))
 plt.grid(True)
-plt.title("trained on {} samples\ntested on {} samples\n{}_sd = {:.3f}\n{}_mean = {:.3f}\n{}".format(len(y_train), len(y_test), Pred, sdNoout, Pred, meNoout, postFix))
+plt.title("trained on {} samples\ntested on {} samples\n{}_sd = {:.3f}\n{}_mean = {:.3f}\n{}layers{}nodes{}epochs{}batch".format(len(y_train), len(y_test), Pred, sdNoout, Pred, meNoout, layers, nodes, epochs, batch))
 plt.tight_layout()
-plt.savefig("./plots/nnRecon/meanError_1dHist_{}_{}train0test0.pdf".format(postFix, Pred))
+plt.savefig("./plots/nnRecon/meanError_1dHist_{}layers{}nodes{}epochs{}batch_{}.pdf".format(layers, nodes, epochs, batch, Pred))
 plt.clf()
 
 #outliers rr vs zz plots
@@ -540,10 +681,10 @@ for i in range(len(Energies)):
     plt.ylabel("{}_zz[m]".format(Pred))
     plt.xlim((0, 8000))
     plt.ylim((-3000, 0))
-    plt.title("10^{:.3f} eV\n{}_{}".format(Energies[i], Pred, postFix))
+    plt.title("10^{:.3f} eV\n{}_{}layers{}nodes{}epochs{}batch".format(Energies[i], Pred, layers, nodes, epochs, batch))
     plt.gca().set_aspect("equal")
 plt.tight_layout()
-plt.savefig("./plots/nnRecon/outliers_{}_{}train0test0.pdf".format(postFix, Pred))
+plt.savefig("./plots/nnRecon/outliers_{}layers{}nodes{}epochs{}batch_{}.pdf".format(layers, nodes, epochs, batch, Pred))
 plt.clf()
 
 #true vs pred
@@ -552,20 +693,20 @@ for i in range(len(Energies)):
     plt.subplot(3, len(Energies) / 3 + 1, i + 1)
     plt.plot([0, int(max(y_test[en_test == Energies[i]]))], [0, int(max(y_test[en_test == Energies[i]]))], c = "r", linewidth = 0.5)
     plt.scatter(y_test[en_test == Energies[i]], y_test_pred[en_test == Energies[i]], s = 0.5)
-    if Pred == "zz" or Pred == "rr" or Pred == "dd":
+    if Pred == "rr":
         plt.xlabel("{}_test[m]".format(Pred))
         plt.ylabel("{}_pred[m]".format(Pred))
-        plt.title("10^{:.3f} eV\ntrained on {} samples\ntested on {} samples\n{}_sdRelativeError = {:.3f}\n{}_meanRelativeError = {:.3f}\n{}".format(Energies[i], len(y_train[en_train == Energies[i]]), len(y_test[en_test == Energies[i]]), Pred, sdPerEnergiesNoout[i], Pred, meanPerEnergiesNoout[i], postFix))
+        plt.title("10^{:.3f} eV\ntrained on {} samples\ntested on {} samples\n{}_sdRelativeError = {:.3f}\n{}_meanRelativeError = {:.3f}\n{}layers{}nodes{}epochs{}batch".format(Energies[i], len(y_train[en_train == Energies[i]]), len(y_test[en_test == Energies[i]]), Pred, sdPerEnergiesNoout[i], Pred, meanPerEnergiesNoout[i], layers, nodes, epochs, batch))
     elif Pred == "en" or Pred == "sh":
         plt.xlabel("{}_test[log10(eV)]".format(Pred))
         plt.ylabel("{}_pred[log10(eV)]".format(Pred))
-        plt.title("10^{:.3f} eV\ntrained on {} samples\ntested on {} samples\n{}_sdError = {:.3f}\n{}_meanError = {:.3f}\n{}".format(Energies[i], len(y_train[en_train == Energies[i]]), len(y_test[en_test == Energies[i]]), Pred, sdPerEnergiesNoout[i], Pred, meanPerEnergiesNoout[i], postFix))
+        plt.title("10^{:.3f} eV\ntrained on {} samples\ntested on {} samples\n{}_sdError = {:.3f}\n{}_meanError = {:.3f}\n{}layers{}nodes{}epochs{}batch".format(Energies[i], len(y_train[en_train == Energies[i]]), len(y_test[en_test == Energies[i]]), Pred, sdPerEnergiesNoout[i], Pred, meanPerEnergiesNoout[i], layers, nodes, epochs, batch))
     elif Pred == "pp" or Pred == "tt" or Pred == "rt" or Pred == "cos" or Pred == "sin" or Pred == "az" or Pred == "ze" or Pred == "cosAz" or Pred == "sinAz" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
         plt.xlabel("{}_test[deg]".format(Pred))
         plt.ylabel("{}_pred[deg]".format(Pred))
-        plt.title("10^{:.3f} eV\ntrained on {} samples\ntested on {} samples\n{}_sdError = {:.3f}\n{}_meanError = {:.3f}\n{}".format(Energies[i], len(y_train[en_train == Energies[i]]), len(y_test[en_test == Energies[i]]), Pred, sdPerEnergiesNoout[i], Pred, meanPerEnergiesNoout[i], postFix))
+        plt.title("10^{:.3f} eV\ntrained on {} samples\ntested on {} samples\n{}_sdError = {:.3f}\n{}_meanError = {:.3f}\n{}layers{}nodes{}epochs{}batch".format(Energies[i], len(y_train[en_train == Energies[i]]), len(y_test[en_test == Energies[i]]), Pred, sdPerEnergiesNoout[i], Pred, meanPerEnergiesNoout[i], layers, nodes, epochs, batch))
 plt.tight_layout()
-plt.savefig("./plots/nnRecon/testVsPred_{}_{}train0test0.pdf".format(postFix, Pred))
+plt.savefig("./plots/nnRecon/testVsPred_{}layers{}nodes{}epochs{}batch_{}.pdf".format(layers, nodes, epochs, batch, Pred))
 plt.clf()
 
 # diff vs true
@@ -573,33 +714,33 @@ plt.rc('font', size = 5)
 for i in range(len(Energies)):
     diff = np.array(y_test[en_test == Energies[i]].reshape((len(y_test[en_test == Energies[i]]), 1)) - y_test_pred[en_test == Energies[i]])
     plt.subplot(3, len(Energies) / 3 + 1, i + 1)
-    if Pred == "zz" or Pred == "rr" or Pred == "dd":
+    if Pred == "rr":
         plt.scatter(y_test[en_test == Energies[i]], diff / y_test[en_test == Energies[i]].reshape((len(y_test[en_test == Energies[i]]), 1)), s = 0.5)
         plt.ylabel("{}_relative error".format(Pred))
         plt.xlabel("{}_test[m]".format(Pred))
         plt.ylim((-2.0, 2.0))
-        plt.title("10^{:.3f} eV\ntrained on {} samples\ntested on {} samples\n{}_sdRelativeError = {:.3f}\n{}_meanRelativeError = {:.3f}\n{}".format(Energies[i], len(y_train[en_train == Energies[i]]), len(y_test[en_test == Energies[i]]), Pred, sdPerEnergiesNoout[i], Pred, meanPerEnergiesNoout[i], postFix))
+        plt.title("10^{:.3f} eV\ntrained on {} samples\ntested on {} samples\n{}_sdRelativeError = {:.3f}\n{}_meanRelativeError = {:.3f}\n{}layers{}nodes{}epochs{}batch".format(Energies[i], len(y_train[en_train == Energies[i]]), len(y_test[en_test == Energies[i]]), Pred, sdPerEnergiesNoout[i], Pred, meanPerEnergiesNoout[i], layers, nodes, epochs, batch))
     elif Pred == "tt" or Pred == "cos":
         plt.scatter(y_test[en_test == Energies[i]], diff, s = 0.5)
         plt.ylabel("{}_error[deg]".format(Pred))
         plt.xlabel("{}_test[deg]".format(Pred))
         plt.ylim((-5.0, 5.0))
-        plt.title("10^{:.3f} eV\ntrained on {} samples\ntested on {} samples\n{}_sdError = {:.3f}\n{}_meanError = {:.3f}\n{}".format(Energies[i], len(y_train[en_train == Energies[i]]), len(y_test[en_test == Energies[i]]), Pred, sdPerEnergiesNoout[i], Pred, meanPerEnergiesNoout[i], postFix))
+        plt.title("10^{:.3f} eV\ntrained on {} samples\ntested on {} samples\n{}_sdError = {:.3f}\n{}_meanError = {:.3f}\n{}layers{}nodes{}epochs{}batch".format(Energies[i], len(y_train[en_train == Energies[i]]), len(y_test[en_test == Energies[i]]), Pred, sdPerEnergiesNoout[i], Pred, meanPerEnergiesNoout[i], layers, nodes, epochs, batch))
     elif Pred == "ze" or Pred == "cosAz" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
         plt.scatter(y_test[en_test == Energies[i]], diff, s = 0.5)
         plt.ylabel("{}_error[deg]".format(Pred))
         plt.xlabel("{}_test[deg]".format(Pred))
         plt.ylim((-15.0, 15.0))
-        plt.title("10^{:.3f} eV\ntrained on {} samples\ntested on {} samples\n{}_sdError = {:.3f}\n{}_meanError = {:.3f}\n{}".format(Energies[i], len(y_train[en_train == Energies[i]]), len(y_test[en_test == Energies[i]]), Pred, sdPerEnergiesNoout[i], Pred, meanPerEnergiesNoout[i], postFix))
+        plt.title("10^{:.3f} eV\ntrained on {} samples\ntested on {} samples\n{}_sdError = {:.3f}\n{}_meanError = {:.3f}\n{}layers{}nodes{}epochs{}batch".format(Energies[i], len(y_train[en_train == Energies[i]]), len(y_test[en_test == Energies[i]]), Pred, sdPerEnergiesNoout[i], Pred, meanPerEnergiesNoout[i], layers, nodes, epochs, batch))
     elif Pred == "en" or Pred == "sh":
         plt.scatter(y_test[en_test == Energies[i]], diff, s = 0.5)
         plt.ylabel("{}_error[log10(eV)]".format(Pred))
         plt.xlabel("{}_test[log10(eV)]".format(Pred))
         plt.ylim((-2.0, 2.0))
-        plt.title("10^{:.3f} eV\ntrained on {} samples\ntested on {} samples\n{}_sdError = {:.3f}\n{}_meanError = {:.3f}\n{}".format(Energies[i], len(y_train[en_train == Energies[i]]), len(y_test[en_test == Energies[i]]), Pred, sdPerEnergiesNoout[i], Pred, meanPerEnergiesNoout[i], postFix))
+        plt.title("10^{:.3f} eV\ntrained on {} samples\ntested on {} samples\n{}_sdError = {:.3f}\n{}_meanError = {:.3f}\n{}layers{}nodes{}epochs{}batch".format(Energies[i], len(y_train[en_train == Energies[i]]), len(y_test[en_test == Energies[i]]), Pred, sdPerEnergiesNoout[i], Pred, meanPerEnergiesNoout[i], layers, nodes, epochs, batch))
     plt.grid(True)
 plt.tight_layout()
-plt.savefig("./plots/nnRecon/testVsDiff_{}_{}train0test0.pdf".format(postFix, Pred))
+plt.savefig("./plots/nnRecon/testVsDiff_{}layers{}nodes{}epochs{}batch_{}.pdf".format(layers, nodes, epochs, batch, Pred))
 plt.clf()
 
 #2dhist of mean error for validation set linear
@@ -608,7 +749,7 @@ diff = np.array(y_train.reshape((len(y_train), 1)) - y_train_pred)
 if Pred == "cos" or Pred == "cosAz":
     diff = np.where(diff > 180., diff - 360., diff)
     diff = np.where(diff < -180., diff + 360., diff)
-if Pred == "zz" or Pred == "rr" or Pred == "dd":
+if Pred == "rr":
     nume = plt.hist2d(rr_train.reshape((len(rr_train),)), zz_train.reshape((len(zz_train),)) * -1., bins=[np.arange(0, 8001, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'), weights = (diff / y_train.reshape((y_train.shape[0], 1))).reshape((diff.shape[0],)))
     deno = plt.hist2d(rr_train.reshape((len(rr_train),)), zz_train.reshape((len(zz_train),)) * -1., bins=[np.arange(0, 8001, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'))
     plt.clf()
@@ -637,7 +778,7 @@ plt.xlabel("rr[m]")
 plt.ylabel("zz[m]")
 plt.grid(True)
 plt.tight_layout()
-plt.savefig("./plots/nnRecon/meanError_rzHistLinear_forTrain{}_{}train0test0.pdf".format(postFix, Pred))
+plt.savefig("./plots/nnRecon/meanError_rzHistLinear_forTrain{}layers{}nodes{}epochs{}batch_{}.pdf".format(layers, nodes, epochs, batch, Pred))
 plt.clf()
 
 #xy 2dhist of mean error linear
@@ -646,7 +787,7 @@ diff = np.array(y_test.reshape((len(y_test), 1)) - y_test_pred)
 if Pred == "cos" or Pred == "cosAz":
     diff = np.where(diff > 180., diff - 360., diff)
     diff = np.where(diff < -180., diff + 360., diff)
-if Pred == "zz" or Pred == "rr" or Pred == "dd":
+if Pred == "rr":
     nume = plt.hist2d(xx_test.reshape((len(xx_test),)), yy_test.reshape((len(yy_test),)), bins=[np.arange(-8000, 8001, 200), np.arange(-8000, 8001, 200)], cmap = plt.get_cmap('Blues'), weights = (diff / y_test.reshape((len(y_test), 1))).reshape((diff.shape[0],)))
     deno = plt.hist2d(xx_test.reshape((len(xx_test),)), yy_test.reshape((len(yy_test),)), bins=[np.arange(-8000, 8001, 200), np.arange(-8000, 8001, 200)], cmap = plt.get_cmap('Blues'))
     plt.clf()
@@ -675,7 +816,7 @@ plt.xlabel("x[m]")
 plt.ylabel("y[m]")
 plt.grid(True)
 plt.tight_layout()
-plt.savefig("./plots/nnRecon/meanError_xyHistLinear_{}_{}train0test0.pdf".format(postFix, Pred))
+plt.savefig("./plots/nnRecon/meanError_xyHistLinear_{}layers{}nodes{}epochs{}batch_{}.pdf".format(layers, nodes, epochs, batch, Pred))
 plt.clf()
 
 #xy 2dhist of mean error for validation set linear
@@ -684,7 +825,7 @@ diff = np.array(y_train.reshape((len(y_train), 1)) - y_train_pred)
 if Pred == "cos" or Pred == "cosAz":
     diff = np.where(diff > 180., diff - 360., diff)
     diff = np.where(diff < -180., diff + 360., diff)
-if Pred == "zz" or Pred == "rr" or Pred == "dd":
+if Pred == "rr":
     nume = plt.hist2d(xx_train.reshape((len(xx_train),)), yy_train.reshape((len(yy_train),)), bins=[np.arange(-8001, 8001, 200), np.arange(-8001, 8001, 200)], cmap = plt.get_cmap('Blues'), weights = (diff / y_train.reshape((y_train.shape[0], 1))).reshape((diff.shape[0],)))
     deno = plt.hist2d(xx_train.reshape((len(xx_train),)), yy_train.reshape((len(yy_train),)), bins=[np.arange(-8001, 8001, 200), np.arange(-8001, 8001, 200)], cmap = plt.get_cmap('Blues'))
     plt.clf()
@@ -713,7 +854,7 @@ plt.xlabel("x[m]")
 plt.ylabel("y[m]")
 plt.grid(True)
 plt.tight_layout()
-plt.savefig("./plots/nnRecon/meanError_xyHistLinear_forTrain{}_{}train0test0.pdf".format(postFix, Pred))
+plt.savefig("./plots/nnRecon/meanError_xyHistLinear_forTrain{}layers{}nodes{}epochs{}batch_{}.pdf".format(layers, nodes, epochs, batch, Pred))
 plt.clf()
 
 #direction 2dhist of mean error linear
@@ -722,7 +863,7 @@ diff = np.array(y_test.reshape((len(y_test), 1)) - y_test_pred)
 if Pred == "cos" or Pred == "cosAz":
     diff = np.where(diff > 180., diff - 360., diff)
     diff = np.where(diff < -180., diff + 360., diff)
-if Pred == "zz" or Pred == "rr" or Pred == "dd":
+if Pred == "rr":
     nume = plt.hist2d(az_test.reshape((len(az_test),)), ze_test.reshape((len(ze_test),)), bins=[np.arange(0, 361, 5), np.arange(0, 181, 5)], cmap = plt.get_cmap('Blues'), weights = (diff / y_test.reshape((len(y_test), 1))).reshape((diff.shape[0],)))
     deno = plt.hist2d(az_test.reshape((len(az_test),)), ze_test.reshape((len(ze_test),)), bins=[np.arange(0, 361, 5), np.arange(0, 181, 5)], cmap = plt.get_cmap('Blues'))
     plt.clf()
@@ -752,7 +893,7 @@ plt.ylabel("zenith[deg]")
 plt.gca().invert_yaxis()
 plt.grid(True)
 plt.tight_layout()
-plt.savefig("./plots/nnRecon/meanError_dirHistLinear_{}_{}train0test0.pdf".format(postFix, Pred))
+plt.savefig("./plots/nnRecon/meanError_dirHistLinear_{}layers{}nodes{}epochs{}batch_{}.pdf".format(layers, nodes, epochs, batch, Pred))
 plt.clf()
 
 #direction 2dhist of mean error for validation set linear
@@ -761,7 +902,7 @@ diff = np.array(y_train.reshape((len(y_train), 1)) - y_train_pred)
 if Pred == "cos" or Pred == "cosAz":
     diff = np.where(diff > 180., diff - 360., diff)
     diff = np.where(diff < -180., diff + 360., diff)
-if Pred == "zz" or Pred == "rr" or Pred == "dd":
+if Pred == "rr":
     nume = plt.hist2d(az_train.reshape((len(az_train),)), ze_train.reshape((len(ze_train),)), bins=[np.arange(0, 361, 5), np.arange(0, 181, 5)], cmap = plt.get_cmap('Blues'), weights = (diff / y_train.reshape((y_train.shape[0], 1))).reshape((diff.shape[0],)))
     deno = plt.hist2d(az_train.reshape((len(az_train),)), ze_train.reshape((len(ze_train),)), bins=[np.arange(0, 361, 5), np.arange(0, 181, 5)], cmap = plt.get_cmap('Blues'))
     plt.clf()
@@ -791,7 +932,7 @@ plt.ylabel("zenith[deg]")
 plt.gca().invert_yaxis()
 plt.grid(True)
 plt.tight_layout()
-plt.savefig("./plots/nnRecon/meanError_dirHistLinear_forTrain{}_{}train0test0.pdf".format(postFix, Pred))
+plt.savefig("./plots/nnRecon/meanError_dirHistLinear_forTrain{}layers{}nodes{}epochs{}batch_{}.pdf".format(layers, nodes, epochs, batch, Pred))
 plt.clf()
 
 #viewing angle dir Vs cone angle 2dhist of mean error for train set linear
@@ -800,7 +941,7 @@ diff = np.array(y_train.reshape((len(y_train), 1)) - y_train_pred)
 if Pred == "cos" or Pred == "cosAz":
     diff = np.where(diff > 180., diff - 360., diff)
     diff = np.where(diff < -180., diff + 360., diff)
-if Pred == "zz" or Pred == "rr" or Pred == "dd":
+if Pred == "rr":
     nume = plt.hist2d(coneAngle_dir_train.reshape((len(coneAngle_dir_train),)), viewAngle_dir_train.reshape((len(viewAngle_dir_train),)), bins=[np.arange(-180, 181, 5), np.arange(0, 111, 5)], cmap = plt.get_cmap('Blues'), weights = (diff / y_train.reshape((y_train.shape[0], 1))).reshape((diff.shape[0],)))
     deno = plt.hist2d(coneAngle_dir_train.reshape((len(coneAngle_dir_train),)), viewAngle_dir_train.reshape((len(viewAngle_dir_train),)), bins=[np.arange(-180, 181, 5), np.arange(0, 111, 5)], cmap = plt.get_cmap('Blues'))
     plt.clf()
@@ -831,7 +972,7 @@ plt.gca().set_aspect("equal")
 plt.xlabel("Cone Angle Dir[deg]")
 plt.grid(True)
 plt.tight_layout()
-plt.savefig("./plots/nnRecon/meanError_viewVsConeDirHistLinear_forTrain{}_{}train0test0.pdf".format(postFix, Pred))
+plt.savefig("./plots/nnRecon/meanError_viewVsConeDirHistLinear_forTrain{}layers{}nodes{}epochs{}batch_{}.pdf".format(layers, nodes, epochs, batch, Pred))
 plt.clf()
 
 #viewing angle dir Vs cone angle 2dhist of rms error for train set linear
@@ -840,7 +981,7 @@ diff = np.array(y_train.reshape((len(y_train), 1)) - y_train_pred)
 if Pred == "cos" or Pred == "cosAz":
     diff = np.where(diff > 180., diff - 360., diff)
     diff = np.where(diff < -180., diff + 360., diff)
-if Pred == "zz" or Pred == "rr" or Pred == "dd":
+if Pred == "rr":
     nume = plt.hist2d(coneAngle_dir_train.reshape((len(coneAngle_dir_train),)), viewAngle_dir_train.reshape((len(viewAngle_dir_train),)), bins=[np.arange(-180, 181, 5), np.arange(0, 111, 5)], cmap = plt.get_cmap('Blues'), weights = np.square(diff / y_train.reshape((y_train.shape[0], 1))).reshape((diff.shape[0],)))
     deno = plt.hist2d(coneAngle_dir_train.reshape((len(coneAngle_dir_train),)), viewAngle_dir_train.reshape((len(viewAngle_dir_train),)), bins=[np.arange(-180, 181, 5), np.arange(0, 111, 5)], cmap = plt.get_cmap('Blues'))
     plt.clf()
@@ -871,7 +1012,7 @@ plt.gca().set_aspect("equal")
 plt.xlabel("Cone Angle Dir[deg]")
 plt.grid(True)
 plt.tight_layout()
-plt.savefig("./plots/nnRecon/rmsError_viewVsConeDirHistLinear_forTrain{}_{}train0test0.pdf".format(postFix, Pred))
+plt.savefig("./plots/nnRecon/rmsError_viewVsConeDirHistLinear_forTrain{}layers{}nodes{}epochs{}batch_{}.pdf".format(layers, nodes, epochs, batch, Pred))
 plt.clf()
 
 #viewing angle ref Vs cone angle 2dhist of mean error for train set linear
@@ -880,7 +1021,7 @@ diff = np.array(y_train.reshape((len(y_train), 1)) - y_train_pred)
 if Pred == "cos" or Pred == "cosAz":
     diff = np.where(diff > 180., diff - 360., diff)
     diff = np.where(diff < -180., diff + 360., diff)
-if Pred == "zz" or Pred == "rr" or Pred == "dd":
+if Pred == "rr":
     nume = plt.hist2d(coneAngle_ref_train.reshape((len(coneAngle_ref_train),)), viewAngle_ref_train.reshape((len(viewAngle_ref_train),)), bins=[np.arange(-180, 181, 5), np.arange(10, 111, 5)], cmap = plt.get_cmap('Blues'), weights = (diff / y_train.reshape((y_train.shape[0], 1))).reshape((diff.shape[0],)))
     deno = plt.hist2d(coneAngle_ref_train.reshape((len(coneAngle_ref_train),)), viewAngle_ref_train.reshape((len(viewAngle_ref_train),)), bins=[np.arange(-180, 181, 5), np.arange(10, 111, 5)], cmap = plt.get_cmap('Blues'))
     plt.clf()
@@ -911,7 +1052,7 @@ plt.gca().set_aspect("equal")
 plt.xlabel("Cone Angle Ref[deg]")
 plt.grid(True)
 plt.tight_layout()
-plt.savefig("./plots/nnRecon/meanError_viewVsConeRefHistLinear_forTrain{}_{}train0test0.pdf".format(postFix, Pred))
+plt.savefig("./plots/nnRecon/meanError_viewVsConeRefHistLinear_forTrain{}layers{}nodes{}epochs{}batch_{}.pdf".format(layers, nodes, epochs, batch, Pred))
 plt.clf()
 
 #viewing angle ref Vs cone angle 2dhist of rms error for train set linear
@@ -920,7 +1061,7 @@ diff = np.array(y_train.reshape((len(y_train), 1)) - y_train_pred)
 if Pred == "cos" or Pred == "cosAz":
     diff = np.where(diff > 180., diff - 360., diff)
     diff = np.where(diff < -180., diff + 360., diff)
-if Pred == "zz" or Pred == "rr" or Pred == "dd":
+if Pred == "rr":
     nume = plt.hist2d(coneAngle_ref_train.reshape((len(coneAngle_ref_train),)), viewAngle_ref_train.reshape((len(viewAngle_ref_train),)), bins=[np.arange(-180, 181, 5), np.arange(10, 111, 5)], cmap = plt.get_cmap('Blues'), weights = np.square(diff / y_train.reshape((y_train.shape[0], 1))).reshape((diff.shape[0],)))
     deno = plt.hist2d(coneAngle_ref_train.reshape((len(coneAngle_ref_train),)), viewAngle_ref_train.reshape((len(viewAngle_ref_train),)), bins=[np.arange(-180, 181, 5), np.arange(10, 111, 5)], cmap = plt.get_cmap('Blues'))
     plt.clf()
@@ -951,7 +1092,7 @@ plt.gca().set_aspect("equal")
 plt.xlabel("Cone Angle Ref[deg]")
 plt.grid(True)
 plt.tight_layout()
-plt.savefig("./plots/nnRecon/rmsError_viewVsConeRefHistLinear_forTrain{}_{}train0test0.pdf".format(postFix, Pred))
+plt.savefig("./plots/nnRecon/rmsError_viewVsConeRefHistLinear_forTrain{}layers{}nodes{}epochs{}batch_{}.pdf".format(layers, nodes, epochs, batch, Pred))
 plt.clf()
 
 #2dhist of mean error linear
@@ -960,7 +1101,7 @@ diff = np.array(y_test.reshape((len(y_test), 1)) - y_test_pred)
 if Pred == "cos" or Pred == "cosAz":
     diff = np.where(diff > 180., diff - 360., diff)
     diff = np.where(diff < -180., diff + 360., diff)
-if Pred == "zz" or Pred == "rr" or Pred == "dd":
+if Pred == "rr":
     nume = plt.hist2d(rr_test.reshape((len(rr_test),)), zz_test.reshape((len(zz_test),)) * -1., bins=[np.arange(0, 8001, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'), weights = (diff / y_test.reshape((len(y_test), 1))).reshape((diff.shape[0],)))
     deno = plt.hist2d(rr_test.reshape((len(rr_test),)), zz_test.reshape((len(zz_test),)) * -1., bins=[np.arange(0, 8001, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'))
     plt.clf()
@@ -988,7 +1129,7 @@ plt.xlabel("rr[m]")
 plt.ylabel("zz[m]")
 plt.grid(True)
 plt.tight_layout()
-plt.savefig("./plots/nnRecon/meanError_rzHistLinear_{}_{}train0test0.pdf".format(postFix, Pred))
+plt.savefig("./plots/nnRecon/meanError_rzHistLinear_{}layers{}nodes{}epochs{}batch_{}.pdf".format(layers, nodes, epochs, batch, Pred))
 plt.clf()
 
 #xy 2dhist of rms error test
@@ -997,7 +1138,7 @@ diff = np.array(y_test.reshape((len(y_test), 1)) - y_test_pred)
 if Pred == "cos" or Pred == "cosAz":
     diff = np.where(diff > 180., diff - 360., diff)
     diff = np.where(diff < -180., diff + 360., diff)
-if Pred == "zz" or Pred == "rr" or Pred == "dd":
+if Pred == "rr":
     nume = plt.hist2d(xx_test.reshape((len(xx_test),)), yy_test.reshape((len(yy_test),)), bins=[np.arange(-8001, 8001, 200), np.arange(-8001, 8001, 200)], cmap = plt.get_cmap('Blues'), weights = np.square(diff / y_test.reshape((y_test.shape[0], 1))).reshape((diff.shape[0],)))
     deno = plt.hist2d(xx_test.reshape((len(xx_test),)), yy_test.reshape((len(yy_test),)), bins=[np.arange(-8001, 8001, 200), np.arange(-8001, 8001, 200)], cmap = plt.get_cmap('Blues'))
     plt.clf()
@@ -1026,7 +1167,7 @@ plt.xlabel("x[m]")
 plt.ylabel("y[m]")
 plt.grid(True)
 plt.tight_layout()
-plt.savefig("./plots/nnRecon/rmsError_xyHistLinear_{}_{}train0test0.pdf".format(postFix, Pred))
+plt.savefig("./plots/nnRecon/rmsError_xyHistLinear_{}layers{}nodes{}epochs{}batch_{}.pdf".format(layers, nodes, epochs, batch, Pred))
 plt.clf()
 
 #direction 2dhist of rms error test
@@ -1035,7 +1176,7 @@ diff = np.array(y_test.reshape((len(y_test), 1)) - y_test_pred)
 if Pred == "cos" or Pred == "cosAz":
     diff = np.where(diff > 180., diff - 360., diff)
     diff = np.where(diff < -180., diff + 360., diff)
-if Pred == "zz" or Pred == "rr" or Pred == "dd":
+if Pred == "rr":
     nume = plt.hist2d(az_test.reshape((len(az_test),)), ze_test.reshape((len(ze_test),)), bins=[np.arange(0, 361, 5), np.arange(0, 181, 5)], cmap = plt.get_cmap('Blues'), weights = np.square(diff / y_test.reshape((y_test.shape[0], 1))).reshape((diff.shape[0],)))
     deno = plt.hist2d(az_test.reshape((len(az_test),)), ze_test.reshape((len(ze_test),)), bins=[np.arange(0, 361, 5), np.arange(0, 181, 5)], cmap = plt.get_cmap('Blues'))
     plt.clf()
@@ -1065,7 +1206,7 @@ plt.ylabel("zenith[deg]")
 plt.gca().invert_yaxis()
 plt.grid(True)
 plt.tight_layout()
-plt.savefig("./plots/nnRecon/rmsError_dirHistLinear_{}_{}train0test0.pdf".format(postFix, Pred))
+plt.savefig("./plots/nnRecon/rmsError_dirHistLinear_{}layers{}nodes{}epochs{}batch_{}.pdf".format(layers, nodes, epochs, batch, Pred))
 plt.clf()
 
 #xy 2dhist of rms error train
@@ -1074,7 +1215,7 @@ diff = np.array(y_train.reshape((len(y_train), 1)) - y_train_pred)
 if Pred == "cos" or Pred == "cosAz":
     diff = np.where(diff > 180., diff - 360., diff)
     diff = np.where(diff < -180., diff + 360., diff)
-if Pred == "zz" or Pred == "rr" or Pred == "dd":
+if Pred == "rr":
     nume = plt.hist2d(xx_train.reshape((len(xx_train),)), yy_train.reshape((len(yy_train),)), bins=[np.arange(-8001, 8001, 200), np.arange(-8001, 8001, 200)], cmap = plt.get_cmap('Blues'), weights = np.square(diff / y_train.reshape((y_train.shape[0], 1))).reshape((diff.shape[0],)))
     deno = plt.hist2d(xx_train.reshape((len(xx_train),)), yy_train.reshape((len(yy_train),)), bins=[np.arange(-8001, 8001, 200), np.arange(-8001, 8001, 200)], cmap = plt.get_cmap('Blues'))
     plt.clf()
@@ -1103,7 +1244,7 @@ plt.xlabel("x[m]")
 plt.ylabel("y[m]")
 plt.grid(True)
 plt.tight_layout()
-plt.savefig("./plots/nnRecon/rmsError_xyHistLinear_forTrain{}_{}train0test0.pdf".format(postFix, Pred))
+plt.savefig("./plots/nnRecon/rmsError_xyHistLinear_forTrain{}layers{}nodes{}epochs{}batch_{}.pdf".format(layers, nodes, epochs, batch, Pred))
 plt.clf()
 
 #direction 2dhist of rms error train
@@ -1112,7 +1253,7 @@ diff = np.array(y_train.reshape((len(y_train), 1)) - y_train_pred)
 if Pred == "cos" or Pred == "cosAz":
     diff = np.where(diff > 180., diff - 360., diff)
     diff = np.where(diff < -180., diff + 360., diff)
-if Pred == "zz" or Pred == "rr" or Pred == "dd":
+if Pred == "rr":
     nume = plt.hist2d(az_train.reshape((len(az_train),)), ze_train.reshape((len(ze_train),)), bins=[np.arange(0, 361, 5), np.arange(0, 181, 5)], cmap = plt.get_cmap('Blues'), weights = np.square(diff / y_train.reshape((y_train.shape[0], 1))).reshape((diff.shape[0],)))
     deno = plt.hist2d(az_train.reshape((len(az_train),)), ze_train.reshape((len(ze_train),)), bins=[np.arange(0, 361, 5), np.arange(0, 181, 5)], cmap = plt.get_cmap('Blues'))
     plt.clf()
@@ -1142,7 +1283,7 @@ plt.ylabel("zenith[deg]")
 plt.gca().invert_yaxis()
 plt.grid(True)
 plt.tight_layout()
-plt.savefig("./plots/nnRecon/rmsError_dirHistLinear_forTrain{}_{}train0test0.pdf".format(postFix, Pred))
+plt.savefig("./plots/nnRecon/rmsError_dirHistLinear_forTrain{}layers{}nodes{}epochs{}batch_{}.pdf".format(layers, nodes, epochs, batch, Pred))
 plt.clf()
 
 #2dhist of rms error linear
@@ -1151,7 +1292,7 @@ diff = np.array(y_test.reshape((len(y_test), 1)) - y_test_pred)
 if Pred == "cos" or Pred == "cosAz":
     diff = np.where(diff > 180., diff - 360., diff)
     diff = np.where(diff < -180., diff + 360., diff)
-if Pred == "zz" or Pred == "rr" or Pred == "dd":
+if Pred == "rr":
     nume = plt.hist2d(rr_test.reshape((len(rr_test),)), zz_test.reshape((len(zz_test),)) * -1., bins=[np.arange(0, 8001, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'), weights = np.square(diff / y_test.reshape((len(y_test), 1))).reshape((diff.shape[0],)))
     deno = plt.hist2d(rr_test.reshape((len(rr_test),)), zz_test.reshape((len(zz_test),)) * -1., bins=[np.arange(0, 8001, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'))
     plt.clf()
@@ -1180,7 +1321,7 @@ plt.xlabel("rr[m]")
 plt.ylabel("zz[m]")
 plt.grid(True)
 plt.tight_layout()
-plt.savefig("./plots/nnRecon/rmsError_rzHistLinear_{}_{}train0test0.pdf".format(postFix, Pred))
+plt.savefig("./plots/nnRecon/rmsError_rzHistLinear_{}layers{}nodes{}epochs{}batch_{}.pdf".format(layers, nodes, epochs, batch, Pred))
 plt.clf()
 
 #2dhist of rms error linear train
@@ -1189,7 +1330,7 @@ diff = np.array(y_train.reshape((len(y_train), 1)) - y_train_pred)
 if Pred == "cos" or Pred == "cosAz":
     diff = np.where(diff > 180., diff - 360., diff)
     diff = np.where(diff < -180., diff + 360., diff)
-if Pred == "zz" or Pred == "rr" or Pred == "dd":
+if Pred == "rr":
     nume = plt.hist2d(rr_train.reshape((len(rr_train),)), zz_train.reshape((len(zz_train),)) * -1., bins=[np.arange(0, 8001, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'), weights = np.square(diff / y_train.reshape((len(y_train), 1))).reshape((diff.shape[0],)))
     deno = plt.hist2d(rr_train.reshape((len(rr_train),)), zz_train.reshape((len(zz_train),)) * -1., bins=[np.arange(0, 8001, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'))
     plt.clf()
@@ -1218,7 +1359,7 @@ plt.xlabel("rr[m]")
 plt.ylabel("zz[m]")
 plt.grid(True)
 plt.tight_layout()
-plt.savefig("./plots/nnRecon/rmsError_rzHistLinear_forTrain{}_{}train0test0.pdf".format(postFix, Pred))
+plt.savefig("./plots/nnRecon/rmsError_rzHistLinear_forTrain{}layers{}nodes{}epochs{}batch_{}.pdf".format(layers, nodes, epochs, batch, Pred))
 plt.clf()
 
 #error summary
@@ -1228,7 +1369,7 @@ plt.grid(True)
 plt.xlabel('Energies[log10(eV)]')
 plt.plot(Energies, sdPerEnergies, marker = "x", label = "sdPerEnergies")
 plt.plot(Energies, sdPerEnergiesNoout, marker = "o", label = "sdPerEnergiesNoout")
-if Pred == "zz" or Pred == "rr" or Pred == "dd":
+if Pred == "rr":
     plt.ylabel('{}_sdRelativeError'.format(Pred))
     plt.ylim(0., 1.)
 elif Pred == "pp" or Pred == "tt" or Pred == "rt" or Pred == "cos" or Pred == "sin" or Pred == "az" or Pred == "ze" or Pred == "cosAz" or Pred == "sinAz" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
@@ -1243,7 +1384,7 @@ plt.grid(True)
 plt.xlabel('Energies[log10(eV)]')
 plt.plot(Energies, meanPerEnergies, marker = "x", label = "meanPerEnergies")
 plt.plot(Energies, meanPerEnergiesNoout, marker = "o", label = "meanPerEnergiesNoout")
-if Pred == "zz" or Pred == "rr" or Pred == "dd":
+if Pred == "rr":
     plt.ylabel('{}_meanRelativeError'.format(Pred))
     plt.ylim(-0.2, 0.2)
 elif Pred == "pp" or Pred == "tt" or Pred == "rt" or Pred == "cos" or Pred == "sin" or Pred == "az" or Pred == "ze" or Pred == "cosAz" or Pred == "sinAz" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
@@ -1253,7 +1394,7 @@ elif Pred == "sh":
     plt.ylabel('{}_meanError[log10(eV)]'.format(Pred))
     plt.ylim(-2, 2)
 plt.legend()
-plt.suptitle("test_{}_{}".format(postFix, Pred))
+plt.suptitle("test_{}layers{}nodes{}epochs{}batch_{}".format(layers, nodes, epochs, batch, Pred))
 plt.tight_layout()
-plt.savefig("./plots/nnRecon/test_{}_{}train0test0.pdf".format(postFix, Pred))
+plt.savefig("./plots/nnRecon/test_{}layers{}nodes{}epochs{}batch_{}.pdf".format(layers, nodes, epochs, batch, Pred))
 plt.clf()
