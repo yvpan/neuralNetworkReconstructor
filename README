@@ -1,16 +1,16 @@
 Packages:
 check the version of required python packages in install.sh. If not sure, run `bash install.sh`.
 
-To run the script:
-`python visualize_sim_input.py $INLIST`, e.g. `python visualize_sim_input.py ./1e18.5_n1e5_0.hdf5`.
+To run the script in ./bin:
+`python ./bin/visualize_sim_input.py $INLIST`, e.g. `python ./bin/visualize_sim_input.py ./data/1e18.5_n1e5_0.hdf5`.
 `$INLIST` is a list of NuRadioMC input files.
 
-`python visualize_sim_output.py $OUTLIST`, e.g. `python visualize_sim_output.py ./1e18.5_n1e5_ARA02_0.hdf5.XFDTD`.
+`python ./bin/visualize_sim_output.py $OUTLIST`, e.g. `python ./bin/visualize_sim_output.py ./data/1e18.5_n1e5_ARA02_0.hdf5.XFDTD`.
 `$OUTLIST` is a list of NuRadioMC output files.
 
-`python nnRecon.py $OUTLIST $LABEL $PARA`, e.g. `python nnRecon.py ./*_ARA02_*.hdf5 train 5 16 200 64`.
+`python ./bin/nnRecon.py $OUTLIST $LABEL $PARA`, e.g. `python ./bin/nnRecon.py ./data/*_ARA02_*.hdf5 train 5 16 200 64`.
 `$OUTLIST` is a list of NuRadioMC output files.
-`$PARA` in a sequence of # of layers, nodes, epochs, batch size.
+`$PARA` in a sequence of # of layers, nodes, epochs, batch size, fold number.
 `$LABEL` in {"train", "rr", "tt", "cos", "ze", "cosAz"}.
 
 
@@ -18,6 +18,7 @@ Recommend:
 run `bash visInput.sh` to visualize the NuRadioMC input files.
 run `bash visOutput.sh` to visualize the NuRadioMC output files.
 run `bash gridSearch.sh` to do grid search and find an optimal network configuration.
+run `bash xvalidation.sh` to do cross validation.
 run `bash nnReconTrain.sh` to train a network. The network will be saved in `./plots/nnRecon/` as an hdf5 file by default.
 run `bash nnReconPlot$LABEL.sh` to visulize results. The plots will be saved in `./plots/nnRecon/` by default.
 
