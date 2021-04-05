@@ -221,7 +221,7 @@ nodes = int(sys.argv[-4]) # number of nodes for each layer, constant for all the
 layers = int(sys.argv[-5]) # number of layers for convolutional and fully connected parts, this is number for each part
 print("Architecture: {} layers, {} nodes, {} epochs, {} batch, {} fold".format(layers, nodes, epochs, batch, fold))
 Pred = sys.argv[-6] # flag for functionality
-if Pred not in ["train", "rr", "tt", "cos", "ze", "cosAz", "sh"]:
+if Pred not in ["train", "rr", "tt", "pp", "ze", "az", "sh"]:
     print("Input error! No argument \"{}\"!".format(Pred))
     sys.exit(1)
 print("Modeling: {}".format(Pred))
@@ -562,12 +562,12 @@ coneAngle_dir_train = np.degrees(y_train[:, 18].reshape((len(y_train), 1)))
 coneAngle_dir_test = np.degrees(y_test[:, 18].reshape((len(y_test), 1)))
 coneAngle_ref_train = np.degrees(y_train[:, 19].reshape((len(y_train), 1)))
 coneAngle_ref_test = np.degrees(y_test[:, 19].reshape((len(y_test), 1)))
-if Pred == "cos":
+if Pred == "pp":
     y_test_pred = pp_test_pred
     y_train_pred = pp_train_pred
     y_test = pp_test
     y_train = pp_train
-elif Pred == "cosAz":
+elif Pred == "az":
     y_test_pred = az_test_pred
     y_train_pred = az_train_pred
     y_test = az_test
@@ -604,13 +604,13 @@ meNoout = 0
 sdNoout = 0
 diff = np.array(y_test.reshape((len(y_test), 1)) - y_test_pred)
 # consider the boundry case at 0/360 deg
-if Pred == "cos" or Pred == "cosAz":
+if Pred == "pp" or Pred == "az":
     diff = np.where(diff > 180., diff - 360., diff)
     diff = np.where(diff < -180., diff + 360., diff)
 # find outliers
 if Pred == "rr":
     outliers = np.where(np.abs(diff / y_test.reshape((len(y_test), 1))) > 0.5, True, False)
-elif Pred == "tt" or Pred == "cos" or Pred == "ze" or Pred == "cosAz" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
+elif Pred == "tt" or Pred == "pp" or Pred == "ze" or Pred == "az" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
     outliers = np.where(np.abs(diff) > 5., True, False)
 elif Pred == "en" or Pred == "sh":
     outliers = np.where(np.abs(diff) > 1., True, False)
@@ -629,7 +629,7 @@ for i in range(len(Energies)):
         plt.xlim((-1, 1))
         plt.ylim((0, 6))
         plt.xlabel("{}_relativeError".format(Pred))
-    elif Pred == "tt" or Pred == "cos":
+    elif Pred == "tt" or Pred == "pp":
         outSelect = outliers[en_test == Energies[i]]
         sdPerEnergies.append(np.std(diff[en_test == Energies[i]]))
         meanPerEnergies.append(np.mean(diff[en_test == Energies[i]]))
@@ -640,7 +640,7 @@ for i in range(len(Energies)):
         plt.xlim((-5, 5))
         plt.ylim((0, 2))
         plt.xlabel("{}_error[deg]".format(Pred))
-    elif Pred == "ze" or Pred == "cosAz" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
+    elif Pred == "ze" or Pred == "az" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
         outSelect = outliers[en_test == Energies[i]]
         sdPerEnergies.append(np.std(diff[en_test == Energies[i]]))
         meanPerEnergies.append(np.mean(diff[en_test == Energies[i]]))
@@ -680,7 +680,7 @@ if Pred == "rr":
     plt.xlim((-1, 1))
     plt.ylim((0, 8))
     plt.xlabel("{}_relativeError".format(Pred))
-elif Pred == "tt" or Pred == "cos":
+elif Pred == "tt" or Pred == "pp":
     me = np.mean(diff)
     sd = np.std(diff)
     meNoout = np.mean(diff[~outliers])
@@ -689,7 +689,7 @@ elif Pred == "tt" or Pred == "cos":
     plt.xlim((-5, 5))
     plt.ylim((0, 2))
     plt.xlabel("{}_error[deg]".format(Pred))
-elif Pred == "ze" or Pred == "cosAz" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
+elif Pred == "ze" or Pred == "az" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
     me = np.mean(diff)
     sd = np.std(diff)
     meNoout = np.mean(diff[~outliers])
@@ -744,7 +744,7 @@ for i in range(len(Energies)):
         plt.xlabel("{}_test[log10(eV)]".format(Pred))
         plt.ylabel("{}_pred[log10(eV)]".format(Pred))
         plt.title("10^{:.3f} eV\ntrained on {} samples\ntested on {} samples\n{}_sdError = {:.3f}\n{}_meanError = {:.3f}\n{}layers{}nodes{}epochs{}batch{}fold".format(Energies[i], len(y_train[en_train == Energies[i]]), len(y_test[en_test == Energies[i]]), Pred, sdPerEnergiesNoout[i], Pred, meanPerEnergiesNoout[i], layers, nodes, epochs, batch, fold))
-    elif Pred == "pp" or Pred == "tt" or Pred == "cos" or Pred == "az" or Pred == "ze" or Pred == "cosAz" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
+    elif Pred == "pp" or Pred == "tt" or Pred == "az" or Pred == "ze" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
         plt.xlabel("{}_test[deg]".format(Pred))
         plt.ylabel("{}_pred[deg]".format(Pred))
         plt.title("10^{:.3f} eV\ntrained on {} samples\ntested on {} samples\n{}_sdError = {:.3f}\n{}_meanError = {:.3f}\n{}layers{}nodes{}epochs{}batch{}fold".format(Energies[i], len(y_train[en_train == Energies[i]]), len(y_test[en_test == Energies[i]]), Pred, sdPerEnergiesNoout[i], Pred, meanPerEnergiesNoout[i], layers, nodes, epochs, batch, fold))
@@ -763,13 +763,13 @@ for i in range(len(Energies)):
         plt.xlabel("{}_test[m]".format(Pred))
         plt.ylim((-2.0, 2.0))
         plt.title("10^{:.3f} eV\ntrained on {} samples\ntested on {} samples\n{}_sdRelativeError = {:.3f}\n{}_meanRelativeError = {:.3f}\n{}layers{}nodes{}epochs{}batch{}fold".format(Energies[i], len(y_train[en_train == Energies[i]]), len(y_test[en_test == Energies[i]]), Pred, sdPerEnergiesNoout[i], Pred, meanPerEnergiesNoout[i], layers, nodes, epochs, batch, fold))
-    elif Pred == "tt" or Pred == "cos":
+    elif Pred == "tt" or Pred == "pp":
         plt.scatter(y_test[en_test == Energies[i]], diff, s = 0.5)
         plt.ylabel("{}_error[deg]".format(Pred))
         plt.xlabel("{}_test[deg]".format(Pred))
         plt.ylim((-5.0, 5.0))
         plt.title("10^{:.3f} eV\ntrained on {} samples\ntested on {} samples\n{}_sdError = {:.3f}\n{}_meanError = {:.3f}\n{}layers{}nodes{}epochs{}batch{}fold".format(Energies[i], len(y_train[en_train == Energies[i]]), len(y_test[en_test == Energies[i]]), Pred, sdPerEnergiesNoout[i], Pred, meanPerEnergiesNoout[i], layers, nodes, epochs, batch, fold))
-    elif Pred == "ze" or Pred == "cosAz" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
+    elif Pred == "ze" or Pred == "az" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
         plt.scatter(y_test[en_test == Energies[i]], diff, s = 0.5)
         plt.ylabel("{}_error[deg]".format(Pred))
         plt.xlabel("{}_test[deg]".format(Pred))
@@ -789,7 +789,7 @@ plt.clf()
 #2dhist of mean error for training set linear
 plt.rc('font', size = 10)
 diff = np.array(y_train.reshape((len(y_train), 1)) - y_train_pred)
-if Pred == "cos" or Pred == "cosAz":
+if Pred == "pp" or Pred == "az":
     diff = np.where(diff > 180., diff - 360., diff)
     diff = np.where(diff < -180., diff + 360., diff)
 if Pred == "rr":
@@ -800,7 +800,7 @@ if Pred == "rr":
     cb = plt.colorbar()
     cb.set_label("{}_meanRelativeError".format(Pred))
     plt.title("relative error = (true - pred) / true")
-elif Pred == "pp" or Pred == "tt" or Pred == "cos" or Pred == "az" or Pred == "ze" or Pred == "cosAz" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
+elif Pred == "pp" or Pred == "tt" or Pred == "az" or Pred == "ze" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
     nume = plt.hist2d(rr_train.reshape((len(rr_train),)), zz_train.reshape((len(zz_train),)) * -1., bins=[np.arange(0, 8001, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'), weights = diff.reshape((diff.shape[0],)))
     deno = plt.hist2d(rr_train.reshape((len(rr_train),)), zz_train.reshape((len(zz_train),)) * -1., bins=[np.arange(0, 8001, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'))
     plt.clf()
@@ -827,7 +827,7 @@ plt.clf()
 #xy 2dhist of mean error linear
 plt.rc('font', size = 10)
 diff = np.array(y_test.reshape((len(y_test), 1)) - y_test_pred)
-if Pred == "cos" or Pred == "cosAz":
+if Pred == "pp" or Pred == "az":
     diff = np.where(diff > 180., diff - 360., diff)
     diff = np.where(diff < -180., diff + 360., diff)
 if Pred == "rr":
@@ -838,7 +838,7 @@ if Pred == "rr":
     cb = plt.colorbar()
     cb.set_label("{}_meanRelativeError".format(Pred))
     plt.title("relative error = (true - pred) / true")
-elif Pred == "pp" or Pred == "tt" or Pred == "cos" or Pred == "az" or Pred == "ze" or Pred == "cosAz" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
+elif Pred == "pp" or Pred == "tt" or Pred == "az" or Pred == "ze" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
     nume = plt.hist2d(xx_test.reshape((len(xx_test),)), yy_test.reshape((len(yy_test),)), bins=[np.arange(-8000, 8001, 200), np.arange(-8000, 8001, 200)], cmap = plt.get_cmap('Blues'), weights = diff.reshape((diff.shape[0],)))
     deno = plt.hist2d(xx_test.reshape((len(xx_test),)), yy_test.reshape((len(yy_test),)), bins=[np.arange(-8000, 8001, 200), np.arange(-8000, 8001, 200)], cmap = plt.get_cmap('Blues'))
     plt.clf()
@@ -865,7 +865,7 @@ plt.clf()
 #xy 2dhist of mean error for train set linear
 plt.rc('font', size = 10)
 diff = np.array(y_train.reshape((len(y_train), 1)) - y_train_pred)
-if Pred == "cos" or Pred == "cosAz":
+if Pred == "pp" or Pred == "az":
     diff = np.where(diff > 180., diff - 360., diff)
     diff = np.where(diff < -180., diff + 360., diff)
 if Pred == "rr":
@@ -876,7 +876,7 @@ if Pred == "rr":
     cb = plt.colorbar()
     cb.set_label("{}_meanRelativeError".format(Pred))
     plt.title("relative error = (true - pred) / true")
-elif Pred == "pp" or Pred == "tt" or Pred == "cos" or Pred == "az" or Pred == "ze" or Pred == "cosAz" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
+elif Pred == "pp" or Pred == "tt" or Pred == "az" or Pred == "ze" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
     nume = plt.hist2d(xx_train.reshape((len(xx_train),)), yy_train.reshape((len(yy_train),)), bins=[np.arange(-8000, 8001, 200), np.arange(-8000, 8001, 200)], cmap = plt.get_cmap('Blues'), weights = diff.reshape((diff.shape[0],)))
     deno = plt.hist2d(xx_train.reshape((len(xx_train),)), yy_train.reshape((len(yy_train),)), bins=[np.arange(-8000, 8001, 200), np.arange(-8000, 8001, 200)], cmap = plt.get_cmap('Blues'))
     plt.clf()
@@ -903,7 +903,7 @@ plt.clf()
 #direction 2dhist of mean error linear
 plt.rc('font', size = 10)
 diff = np.array(y_test.reshape((len(y_test), 1)) - y_test_pred)
-if Pred == "cos" or Pred == "cosAz":
+if Pred == "pp" or Pred == "az":
     diff = np.where(diff > 180., diff - 360., diff)
     diff = np.where(diff < -180., diff + 360., diff)
 if Pred == "rr":
@@ -914,7 +914,7 @@ if Pred == "rr":
     cb = plt.colorbar()
     cb.set_label("{}_meanRelativeError".format(Pred))
     plt.title("relative error = (true - pred) / true")
-elif Pred == "pp" or Pred == "tt" or Pred == "cos" or Pred == "az" or Pred == "ze" or Pred == "cosAz" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
+elif Pred == "pp" or Pred == "tt" or Pred == "az" or Pred == "ze" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
     nume = plt.hist2d(az_test.reshape((len(az_test),)), ze_test.reshape((len(ze_test),)), bins=[np.arange(0, 361, 5), np.arange(0, 181, 5)], cmap = plt.get_cmap('Blues'), weights = diff.reshape((diff.shape[0],)))
     deno = plt.hist2d(az_test.reshape((len(az_test),)), ze_test.reshape((len(ze_test),)), bins=[np.arange(0, 361, 5), np.arange(0, 181, 5)], cmap = plt.get_cmap('Blues'))
     plt.clf()
@@ -931,8 +931,8 @@ elif Pred == "en" or Pred == "sh":
     cb.set_label("{}_error[log10(eV)]".format(Pred))
     plt.title("error = true - pred")
 plt.gca().set_aspect("equal")
-plt.xlabel("azimuth[deg]")
-plt.ylabel("zenith[deg]")
+plt.xlabel("az[deg]")
+plt.ylabel("ze[deg]")
 plt.gca().invert_yaxis()
 plt.grid(True)
 plt.tight_layout()
@@ -942,7 +942,7 @@ plt.clf()
 #direction 2dhist of mean error for train set linear
 plt.rc('font', size = 10)
 diff = np.array(y_train.reshape((len(y_train), 1)) - y_train_pred)
-if Pred == "cos" or Pred == "cosAz":
+if Pred == "pp" or Pred == "az":
     diff = np.where(diff > 180., diff - 360., diff)
     diff = np.where(diff < -180., diff + 360., diff)
 if Pred == "rr":
@@ -953,7 +953,7 @@ if Pred == "rr":
     cb = plt.colorbar()
     cb.set_label("{}_meanRelativeError".format(Pred))
     plt.title("relative error = (true - pred) / true")
-elif Pred == "pp" or Pred == "tt" or Pred == "cos" or Pred == "az" or Pred == "ze" or Pred == "cosAz" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
+elif Pred == "pp" or Pred == "tt" or Pred == "az" or Pred == "ze" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
     nume = plt.hist2d(az_train.reshape((len(az_train),)), ze_train.reshape((len(ze_train),)), bins=[np.arange(0, 361, 5), np.arange(0, 181, 5)], cmap = plt.get_cmap('Blues'), weights = diff.reshape((diff.shape[0],)))
     deno = plt.hist2d(az_train.reshape((len(az_train),)), ze_train.reshape((len(ze_train),)), bins=[np.arange(0, 361, 5), np.arange(0, 181, 5)], cmap = plt.get_cmap('Blues'))
     plt.clf()
@@ -970,8 +970,8 @@ elif Pred == "en" or Pred == "sh":
     cb.set_label("{}_error[log10(eV)]".format(Pred))
     plt.title("error = true - pred")
 plt.gca().set_aspect("equal")
-plt.xlabel("azimuth[deg]")
-plt.ylabel("zenith[deg]")
+plt.xlabel("az[deg]")
+plt.ylabel("ze[deg]")
 plt.gca().invert_yaxis()
 plt.grid(True)
 plt.tight_layout()
@@ -981,7 +981,7 @@ plt.clf()
 #viewing angle dir Vs cone angle 2dhist of mean error for train set linear
 plt.rc('font', size = 10)
 diff = np.array(y_train.reshape((len(y_train), 1)) - y_train_pred)
-if Pred == "cos" or Pred == "cosAz":
+if Pred == "pp" or Pred == "az":
     diff = np.where(diff > 180., diff - 360., diff)
     diff = np.where(diff < -180., diff + 360., diff)
 if Pred == "rr":
@@ -993,7 +993,7 @@ if Pred == "rr":
     cb.set_label("{}_meanRelativeError".format(Pred))
     plt.ylabel("viewing angle[deg]")
     plt.title("relative error = (true - pred) / true")
-elif Pred == "pp" or Pred == "tt" or Pred == "cos" or Pred == "az" or Pred == "ze" or Pred == "cosAz" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
+elif Pred == "pp" or Pred == "tt" or Pred == "az" or Pred == "ze" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
     nume = plt.hist2d(coneAngle_dir_train.reshape((len(coneAngle_dir_train),)), viewAngle_dir_train.reshape((len(viewAngle_dir_train),)), bins=[np.arange(-180, 181, 5), np.arange(0, 111, 5)], cmap = plt.get_cmap('Blues'), weights = diff.reshape((diff.shape[0],)))
     deno = plt.hist2d(coneAngle_dir_train.reshape((len(coneAngle_dir_train),)), viewAngle_dir_train.reshape((len(viewAngle_dir_train),)), bins=[np.arange(-180, 181, 5), np.arange(0, 111, 5)], cmap = plt.get_cmap('Blues'))
     plt.clf()
@@ -1021,7 +1021,7 @@ plt.clf()
 #viewing angle dir Vs cone angle 2dhist of rms error for train set linear
 plt.rc('font', size = 10)
 diff = np.array(y_train.reshape((len(y_train), 1)) - y_train_pred)
-if Pred == "cos" or Pred == "cosAz":
+if Pred == "pp" or Pred == "az":
     diff = np.where(diff > 180., diff - 360., diff)
     diff = np.where(diff < -180., diff + 360., diff)
 if Pred == "rr":
@@ -1033,7 +1033,7 @@ if Pred == "rr":
     cb.set_label("{}_rmsRelativeError".format(Pred))
     plt.ylabel("viewing angle[deg]")
     plt.title("relative error = (true - pred) / true")
-elif Pred == "pp" or Pred == "tt" or Pred == "cos" or Pred == "az" or Pred == "ze" or Pred == "cosAz" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
+elif Pred == "pp" or Pred == "tt" or Pred == "az" or Pred == "ze" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
     nume = plt.hist2d(coneAngle_dir_train.reshape((len(coneAngle_dir_train),)), viewAngle_dir_train.reshape((len(viewAngle_dir_train),)), bins=[np.arange(-180, 181, 5), np.arange(0, 111, 5)], cmap = plt.get_cmap('Blues'), weights = np.square(diff).reshape((diff.shape[0],)))
     deno = plt.hist2d(coneAngle_dir_train.reshape((len(coneAngle_dir_train),)), viewAngle_dir_train.reshape((len(viewAngle_dir_train),)), bins=[np.arange(-180, 181, 5), np.arange(0, 111, 5)], cmap = plt.get_cmap('Blues'))
     plt.clf()
@@ -1061,7 +1061,7 @@ plt.clf()
 #viewing angle ref Vs cone angle 2dhist of mean error for train set linear
 plt.rc('font', size = 10)
 diff = np.array(y_train.reshape((len(y_train), 1)) - y_train_pred)
-if Pred == "cos" or Pred == "cosAz":
+if Pred == "pp" or Pred == "az":
     diff = np.where(diff > 180., diff - 360., diff)
     diff = np.where(diff < -180., diff + 360., diff)
 if Pred == "rr":
@@ -1073,7 +1073,7 @@ if Pred == "rr":
     cb.set_label("{}_meanRelativeError".format(Pred))
     plt.ylabel("viewing angle[deg]")
     plt.title("relative error = (true - pred) / true")
-elif Pred == "pp" or Pred == "tt" or Pred == "cos" or Pred == "az" or Pred == "ze" or Pred == "cosAz" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
+elif Pred == "pp" or Pred == "tt" or Pred == "az" or Pred == "ze" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
     nume = plt.hist2d(coneAngle_ref_train.reshape((len(coneAngle_ref_train),)), viewAngle_ref_train.reshape((len(viewAngle_ref_train),)), bins=[np.arange(-180, 181, 5), np.arange(10, 111, 5)], cmap = plt.get_cmap('Blues'), weights = diff.reshape((diff.shape[0],)))
     deno = plt.hist2d(coneAngle_ref_train.reshape((len(coneAngle_ref_train),)), viewAngle_ref_train.reshape((len(viewAngle_ref_train),)), bins=[np.arange(-180, 181, 5), np.arange(10, 111, 5)], cmap = plt.get_cmap('Blues'))
     plt.clf()
@@ -1101,7 +1101,7 @@ plt.clf()
 #viewing angle ref Vs cone angle 2dhist of rms error for train set linear
 plt.rc('font', size = 10)
 diff = np.array(y_train.reshape((len(y_train), 1)) - y_train_pred)
-if Pred == "cos" or Pred == "cosAz":
+if Pred == "pp" or Pred == "az":
     diff = np.where(diff > 180., diff - 360., diff)
     diff = np.where(diff < -180., diff + 360., diff)
 if Pred == "rr":
@@ -1113,7 +1113,7 @@ if Pred == "rr":
     cb.set_label("{}_rmsRelativeError".format(Pred))
     plt.ylabel("viewing angle[deg]")
     plt.title("relative error = (true - pred) / true")
-elif Pred == "pp" or Pred == "tt" or Pred == "cos" or Pred == "az" or Pred == "ze" or Pred == "cosAz" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
+elif Pred == "pp" or Pred == "tt" or Pred == "az" or Pred == "ze" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
     nume = plt.hist2d(coneAngle_ref_train.reshape((len(coneAngle_ref_train),)), viewAngle_ref_train.reshape((len(viewAngle_ref_train),)), bins=[np.arange(-180, 181, 5), np.arange(10, 111, 5)], cmap = plt.get_cmap('Blues'), weights = np.square(diff).reshape((diff.shape[0],)))
     deno = plt.hist2d(coneAngle_ref_train.reshape((len(coneAngle_ref_train),)), viewAngle_ref_train.reshape((len(viewAngle_ref_train),)), bins=[np.arange(-180, 181, 5), np.arange(10, 111, 5)], cmap = plt.get_cmap('Blues'))
     plt.clf()
@@ -1141,7 +1141,7 @@ plt.clf()
 #2dhist of mean error linear
 plt.rc('font', size = 10)
 diff = np.array(y_test.reshape((len(y_test), 1)) - y_test_pred)
-if Pred == "cos" or Pred == "cosAz":
+if Pred == "pp" or Pred == "az":
     diff = np.where(diff > 180., diff - 360., diff)
     diff = np.where(diff < -180., diff + 360., diff)
 if Pred == "rr":
@@ -1152,7 +1152,7 @@ if Pred == "rr":
     cb = plt.colorbar()
     cb.set_label("{}_meanRelativeError".format(Pred))
     plt.title("relative error = (true - pred) / true")
-elif Pred == "pp" or Pred == "tt" or Pred == "cos" or Pred == "az" or Pred == "ze" or Pred == "cosAz" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
+elif Pred == "pp" or Pred == "tt" or Pred == "az" or Pred == "ze" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
     nume = plt.hist2d(rr_test.reshape((len(rr_test),)), zz_test.reshape((len(zz_test),)) * -1., bins=[np.arange(0, 8001, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'), weights = diff.reshape((diff.shape[0],)))
     deno = plt.hist2d(rr_test.reshape((len(rr_test),)), zz_test.reshape((len(zz_test),)) * -1., bins=[np.arange(0, 8001, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'))
     plt.clf()
@@ -1178,7 +1178,7 @@ plt.clf()
 #xy 2dhist of rms error test
 plt.rc('font', size = 10)
 diff = np.array(y_test.reshape((len(y_test), 1)) - y_test_pred)
-if Pred == "cos" or Pred == "cosAz":
+if Pred == "pp" or Pred == "az":
     diff = np.where(diff > 180., diff - 360., diff)
     diff = np.where(diff < -180., diff + 360., diff)
 if Pred == "rr":
@@ -1189,7 +1189,7 @@ if Pred == "rr":
     cb = plt.colorbar()
     cb.set_label("{}_rmsRelativeError".format(Pred))
     plt.title("relative error = (true - pred) / true")
-elif Pred == "pp" or Pred == "tt" or Pred == "cos" or Pred == "az" or Pred == "ze" or Pred == "cosAz" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
+elif Pred == "pp" or Pred == "tt" or Pred == "az" or Pred == "ze" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
     nume = plt.hist2d(xx_test.reshape((len(xx_test),)), yy_test.reshape((len(yy_test),)), bins=[np.arange(-8001, 8001, 200), np.arange(-8001, 8001, 200)], cmap = plt.get_cmap('Blues'), weights = np.square(diff).reshape((diff.shape[0],)))
     deno = plt.hist2d(xx_test.reshape((len(xx_test),)), yy_test.reshape((len(yy_test),)), bins=[np.arange(-8001, 8001, 200), np.arange(-8001, 8001, 200)], cmap = plt.get_cmap('Blues'))
     plt.clf()
@@ -1216,7 +1216,7 @@ plt.clf()
 #direction 2dhist of rms error test
 plt.rc('font', size = 10)
 diff = np.array(y_test.reshape((len(y_test), 1)) - y_test_pred)
-if Pred == "cos" or Pred == "cosAz":
+if Pred == "pp" or Pred == "az":
     diff = np.where(diff > 180., diff - 360., diff)
     diff = np.where(diff < -180., diff + 360., diff)
 if Pred == "rr":
@@ -1227,7 +1227,7 @@ if Pred == "rr":
     cb = plt.colorbar()
     cb.set_label("{}_rmsRelativeError".format(Pred))
     plt.title("relative error = (true - pred) / true")
-elif Pred == "pp" or Pred == "tt" or Pred == "cos" or Pred == "az" or Pred == "ze" or Pred == "cosAz" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
+elif Pred == "pp" or Pred == "tt" or Pred == "az" or Pred == "ze" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
     nume = plt.hist2d(az_test.reshape((len(az_test),)), ze_test.reshape((len(ze_test),)), bins=[np.arange(0, 361, 5), np.arange(0, 181, 5)], cmap = plt.get_cmap('Blues'), weights = np.square(diff).reshape((diff.shape[0],)))
     deno = plt.hist2d(az_test.reshape((len(az_test),)), ze_test.reshape((len(ze_test),)), bins=[np.arange(0, 361, 5), np.arange(0, 181, 5)], cmap = plt.get_cmap('Blues'))
     plt.clf()
@@ -1244,8 +1244,8 @@ elif Pred == "en" or Pred == "sh":
     cb.set_label("{}_rmsError[log10(eV)]".format(Pred))
     plt.title("error = true - pred")
 plt.gca().set_aspect("equal")
-plt.xlabel("azimuth[deg]")
-plt.ylabel("zenith[deg]")
+plt.xlabel("az[deg]")
+plt.ylabel("ze[deg]")
 plt.gca().invert_yaxis()
 plt.grid(True)
 plt.tight_layout()
@@ -1255,7 +1255,7 @@ plt.clf()
 #xy 2dhist of rms error for train set
 plt.rc('font', size = 10)
 diff = np.array(y_train.reshape((len(y_train), 1)) - y_train_pred)
-if Pred == "cos" or Pred == "cosAz":
+if Pred == "pp" or Pred == "az":
     diff = np.where(diff > 180., diff - 360., diff)
     diff = np.where(diff < -180., diff + 360., diff)
 if Pred == "rr":
@@ -1266,7 +1266,7 @@ if Pred == "rr":
     cb = plt.colorbar()
     cb.set_label("{}_rmsRelativeError".format(Pred))
     plt.title("relative error = (true - pred) / true")
-elif Pred == "pp" or Pred == "tt" or Pred == "cos" or Pred == "az" or Pred == "ze" or Pred == "cosAz" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
+elif Pred == "pp" or Pred == "tt" or Pred == "az" or Pred == "ze" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
     nume = plt.hist2d(xx_train.reshape((len(xx_train),)), yy_train.reshape((len(yy_train),)), bins=[np.arange(-8001, 8001, 200), np.arange(-8001, 8001, 200)], cmap = plt.get_cmap('Blues'), weights = np.square(diff).reshape((diff.shape[0],)))
     deno = plt.hist2d(xx_train.reshape((len(xx_train),)), yy_train.reshape((len(yy_train),)), bins=[np.arange(-8001, 8001, 200), np.arange(-8001, 8001, 200)], cmap = plt.get_cmap('Blues'))
     plt.clf()
@@ -1293,7 +1293,7 @@ plt.clf()
 #direction 2dhist of rms error for train set
 plt.rc('font', size = 10)
 diff = np.array(y_train.reshape((len(y_train), 1)) - y_train_pred)
-if Pred == "cos" or Pred == "cosAz":
+if Pred == "pp" or Pred == "az":
     diff = np.where(diff > 180., diff - 360., diff)
     diff = np.where(diff < -180., diff + 360., diff)
 if Pred == "rr":
@@ -1304,7 +1304,7 @@ if Pred == "rr":
     cb = plt.colorbar()
     cb.set_label("{}_rmsRelativeError".format(Pred))
     plt.title("relative error = (true - pred) / true")
-elif Pred == "pp" or Pred == "tt" or Pred == "cos" or Pred == "az" or Pred == "ze" or Pred == "cosAz" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
+elif Pred == "pp" or Pred == "tt" or Pred == "az" or Pred == "ze" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
     nume = plt.hist2d(az_train.reshape((len(az_train),)), ze_train.reshape((len(ze_train),)), bins=[np.arange(0, 361, 5), np.arange(0, 181, 5)], cmap = plt.get_cmap('Blues'), weights = np.square(diff).reshape((diff.shape[0],)))
     deno = plt.hist2d(az_train.reshape((len(az_train),)), ze_train.reshape((len(ze_train),)), bins=[np.arange(0, 361, 5), np.arange(0, 181, 5)], cmap = plt.get_cmap('Blues'))
     plt.clf()
@@ -1321,8 +1321,8 @@ elif Pred == "en" or Pred == "sh":
     cb.set_label("{}_rmsError[log10(eV)]".format(Pred))
     plt.title("error = true - pred")
 plt.gca().set_aspect("equal")
-plt.xlabel("azimuth[deg]")
-plt.ylabel("zenith[deg]")
+plt.xlabel("az[deg]")
+plt.ylabel("ze[deg]")
 plt.gca().invert_yaxis()
 plt.grid(True)
 plt.tight_layout()
@@ -1332,7 +1332,7 @@ plt.clf()
 #2dhist of rms error linear
 plt.rc('font', size = 10)
 diff = np.array(y_test.reshape((len(y_test), 1)) - y_test_pred)
-if Pred == "cos" or Pred == "cosAz":
+if Pred == "pp" or Pred == "az":
     diff = np.where(diff > 180., diff - 360., diff)
     diff = np.where(diff < -180., diff + 360., diff)
 if Pred == "rr":
@@ -1343,7 +1343,7 @@ if Pred == "rr":
     cb = plt.colorbar()
     cb.set_label("{}_rmsRelativeError".format(Pred))
     plt.title("relative error = (true - pred) / true")
-elif Pred == "pp" or Pred == "tt" or Pred == "cos" or Pred == "az" or Pred == "ze" or Pred == "cosAz" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
+elif Pred == "pp" or Pred == "tt" or Pred == "az" or Pred == "ze" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
     nume = plt.hist2d(rr_test.reshape((len(rr_test),)), zz_test.reshape((len(zz_test),)) * -1., bins=[np.arange(0, 8001, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'), weights = np.square(diff).reshape((diff.shape[0],)))
     deno = plt.hist2d(rr_test.reshape((len(rr_test),)), zz_test.reshape((len(zz_test),)) * -1., bins=[np.arange(0, 8001, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'))
     plt.clf()
@@ -1370,7 +1370,7 @@ plt.clf()
 #2dhist of rms error linear for train set
 plt.rc('font', size = 10)
 diff = np.array(y_train.reshape((len(y_train), 1)) - y_train_pred)
-if Pred == "cos" or Pred == "cosAz":
+if Pred == "pp" or Pred == "az":
     diff = np.where(diff > 180., diff - 360., diff)
     diff = np.where(diff < -180., diff + 360., diff)
 if Pred == "rr":
@@ -1381,7 +1381,7 @@ if Pred == "rr":
     cb = plt.colorbar()
     cb.set_label("{}_rmsRelativeError".format(Pred))
     plt.title("relative error = (true - pred) / true")
-elif Pred == "pp" or Pred == "tt" or Pred == "cos" or Pred == "az" or Pred == "ze" or Pred == "cosAz" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
+elif Pred == "pp" or Pred == "tt" or Pred == "az" or Pred == "ze" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
     nume = plt.hist2d(rr_train.reshape((len(rr_train),)), zz_train.reshape((len(zz_train),)) * -1., bins=[np.arange(0, 8001, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'), weights = np.square(diff).reshape((diff.shape[0],)))
     deno = plt.hist2d(rr_train.reshape((len(rr_train),)), zz_train.reshape((len(zz_train),)) * -1., bins=[np.arange(0, 8001, 100), np.arange(-3000, 1, 100)], cmap = plt.get_cmap('Blues'))
     plt.clf()
@@ -1415,7 +1415,7 @@ plt.plot(Energies, sdPerEnergiesNoout, marker = "o", label = "sdPerEnergiesNoout
 if Pred == "rr":
     plt.ylabel('{}_sdRelativeError'.format(Pred))
     plt.ylim(0., 1.)
-elif Pred == "pp" or Pred == "tt" or Pred == "cos" or Pred == "az" or Pred == "ze" or Pred == "cosAz" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
+elif Pred == "pp" or Pred == "tt" or Pred == "az" or Pred == "ze" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
     plt.ylabel('{}_sdError[deg]'.format(Pred))
     plt.ylim(0., 5.)
 elif Pred == "sh":
@@ -1430,7 +1430,7 @@ plt.plot(Energies, meanPerEnergiesNoout, marker = "o", label = "meanPerEnergiesN
 if Pred == "rr":
     plt.ylabel('{}_meanRelativeError'.format(Pred))
     plt.ylim(-0.2, 0.2)
-elif Pred == "pp" or Pred == "tt" or Pred == "cos" or Pred == "az" or Pred == "ze" or Pred == "cosAz" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
+elif Pred == "pp" or Pred == "tt" or Pred == "az" or Pred == "ze" or Pred == "viewDir" or Pred == "viewRef" or Pred == "coneDir" or Pred == "coneRef":
     plt.ylabel('{}_meanError[deg]'.format(Pred))
     plt.ylim(-2, 2)
 elif Pred == "sh":

@@ -53,7 +53,7 @@ do
         do  
             for b in 32 64 128 256
             do  
-                python ./bin/nnRecon.py /data/user/ypan/bin/simulations/ARA02Recon/*_ARA02_*.hdf5.XFDTD cos ${l} ${n} ${e} ${b} 0 &
+                python ./bin/nnRecon.py /data/user/ypan/bin/simulations/ARA02Recon/*_ARA02_*.hdf5.XFDTD pp ${l} ${n} ${e} ${b} 0 &
             done
         done
     done
@@ -83,7 +83,7 @@ do
         do  
             for b in 32 64 128 256
             do  
-                python ./bin/nnRecon.py /data/user/ypan/bin/simulations/ARA02Recon/*_ARA02_*.hdf5.XFDTD cosAz ${l} ${n} ${e} ${b} 0 &
+                python ./bin/nnRecon.py /data/user/ypan/bin/simulations/ARA02Recon/*_ARA02_*.hdf5.XFDTD az ${l} ${n} ${e} ${b} 0 &
             done
         done
     done

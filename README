@@ -11,7 +11,7 @@ To run the script in ./bin:
 `python ./bin/nnRecon.py $OUTLIST $LABEL $PARA`, e.g. `python ./bin/nnRecon.py ./data/*_ARA02_*.hdf5 train 5 16 200 64`.
 `$OUTLIST` is a list of NuRadioMC output files.
 `$PARA` in a sequence of # of layers, nodes, epochs, batch size, fold number.
-`$LABEL` in {"train", "rr", "tt", "cos", "ze", "cosAz"}.
+`$LABEL` in {"train", "rr", "tt", "pp", "ze", "az"}.
 
 
 Recommend:
