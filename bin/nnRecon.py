@@ -211,7 +211,7 @@ numSplit = 10 # 10 fold cross validation bu default, 90% training, 5% validation
 strNum = 4 # number of strings for a detector
 channelPerStr = 4 # number of antennas on each string
 Energies = []
-fold = int(sys.argv[-1]) # the foldth fold as validation and test
+fold = int(sys.argv[-1]) # the foldth fold as validation and test, unless doing cross validation, always use the 0th fold
 if fold > numSplit - 1:
     print("Input error! No \"{}th\" fold in {} fold xvalidation!".format(fold, numSplit))
     sys.exit(1)
@@ -454,7 +454,7 @@ print("Data spliting ...")
 kfold = KFold(n_splits = numSplit, shuffle = True, random_state = 1) #split data into numSplit parts
 kth = 0
 for train, test in kfold.split(x, y):
-    if kth != fold: # unless doing cross validation, always use the 0th fold
+    if kth != fold: # if not the intended fold num, go to next iteration
         kth += 1
         continue
     x_train = x[train]
@@ -510,6 +510,8 @@ for train, test in kfold.split(x, y):
         plotLearn("sh", history)
         plotImportance(model, x_test, y_test)
         sys.exit(1) # finish train and exit
+    else:
+        break # use the intended fold for test and validation plots
 
 print("Making predictions ...")
 model.load_weights("./plots/nnRecon/allPairsWeights_{}layers{}nodes{}epochs{}batch{}fold.hdf5".format(layers, nodes, epochs, batch, fold))
