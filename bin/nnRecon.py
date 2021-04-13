@@ -740,6 +740,8 @@ plt.clf()
 plt.rc('font', size = 5)
 for i in range(len(Energies)):
     plt.subplot(3, len(Energies) / 3 + 1, i + 1)
+    if y_test[en_test == Energies[i]].shape[0] == 0:
+        continue
     plt.plot([0, int(max(y_test[en_test == Energies[i]]))], [0, int(max(y_test[en_test == Energies[i]]))], c = "r", linewidth = 0.5)
     plt.scatter(y_test[en_test == Energies[i]], y_test_pred[en_test == Energies[i]], s = 0.5)
     if Pred == "rr":
@@ -763,6 +765,8 @@ plt.rc('font', size = 5)
 for i in range(len(Energies)):
     diff = np.array(y_test[en_test == Energies[i]].reshape((len(y_test[en_test == Energies[i]]), 1)) - y_test_pred[en_test == Energies[i]])
     plt.subplot(3, len(Energies) / 3 + 1, i + 1)
+    if y_test[en_test == Energies[i]].shape[0] == 0:
+        continue
     if Pred == "rr":
         plt.scatter(y_test[en_test == Energies[i]], diff / y_test[en_test == Energies[i]].reshape((len(y_test[en_test == Energies[i]]), 1)), s = 0.5)
         plt.ylabel("{}_relative error".format(Pred))
