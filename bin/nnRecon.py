@@ -486,8 +486,6 @@ for train, test in kfold.split(x, y):
     x_val = (x_val - xMean) / (xStd + K.epsilon())
     x_test = (x_test - xMean) / (xStd + K.epsilon())
     if Pred == "train":
-        print(x_test[0])
-        print(y_test[0])
         plotFeature(x_test, y_test)
     # select from the general x what features to use
     '''
@@ -758,6 +756,8 @@ plt.clf()
 plt.rc('font', size = 5)
 for i in range(len(Energies)):
     plt.subplot(3, len(Energies) / 3 + 1, i + 1)
+    if y_test[en_test == Energies[i]].shape[0] == 0:
+        continue
     plt.plot([0, int(max(y_test[en_test == Energies[i]]))], [0, int(max(y_test[en_test == Energies[i]]))], c = "r", linewidth = 0.5)
     plt.scatter(y_test[en_test == Energies[i]], y_test_pred[en_test == Energies[i]], s = 0.5)
     if Pred == "rr":
@@ -781,6 +781,8 @@ plt.rc('font', size = 5)
 for i in range(len(Energies)):
     diff = np.array(y_test[en_test == Energies[i]].reshape((len(y_test[en_test == Energies[i]]), 1)) - y_test_pred[en_test == Energies[i]])
     plt.subplot(3, len(Energies) / 3 + 1, i + 1)
+    if y_test[en_test == Energies[i]].shape[0] == 0:
+        continue
     if Pred == "rr":
         plt.scatter(y_test[en_test == Energies[i]], diff / y_test[en_test == Energies[i]].reshape((len(y_test[en_test == Energies[i]]), 1)), s = 0.5)
         plt.ylabel("{}_relative error".format(Pred))
