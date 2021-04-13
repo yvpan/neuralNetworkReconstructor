@@ -30,7 +30,7 @@ def my_mspe(y_true, y_pred):
     # self defined mean squared percentage error
     y_pred = ops.convert_to_tensor(y_pred)
     y_true = math_ops.cast(y_true, y_pred.dtype)
-    diff = math_ops.square((y_true - y_pred) / K.maximum(math_ops.abs(y_true), K.epsilon()))
+    diff = math_ops.square((y_true - y_pred) / (math_ops.abs(y_true) + K.epsilon()))
     return K.mean(diff, axis = -1)
 
 def normalize(mat):
@@ -42,7 +42,7 @@ def normalize(mat):
     maximum = maximum.reshape((maximum.shape[0], 1))
     minimum = np.nanmin(mat, axis = 1)
     minimum = minimum.reshape((minimum.shape[0], 1))
-    deno = np.maximum(maximum - minimum, 1e-10)# avoid dividing by zero
+    deno = maximum - minimum + K.epsilon()# avoid dividing by zero
     mat = (mat - minimum) / deno
     return mat.reshape((mat.shape[0], nRow, nCol))
 
@@ -105,8 +105,12 @@ def plotFeature(x, y):
             "ze": y[:, 8],
             "sh": y[:, 12]}
     df = pd.DataFrame(data, columns = ["t_dir[1, 0]", "t_ref[1, 0]", "a_dir[1, 0]", "a_ref[1, 0]", "r_dir[1, 0]", "r_ref[1, 0]", "v_dir[1, 0]", "v_ref[1, 0]", "c_dir[1, 0]", "c_ref[1, 0]", "t_dir[2, 0]", "t_ref[2, 0]", "a_dir[2, 0]", "a_ref[2, 0]", "r_dir[2, 0]", "r_ref[2, 0]", "v_dir[2, 0]", "v_ref[2, 0]", "c_dir[2, 0]", "c_ref[2, 0]", "t_dir[0, 1]", "t_ref[0, 1]", "a_dir[0, 1]", "a_ref[0, 1]", "r_dir[0, 1]", "r_ref[0, 1]", "v_dir[0, 1]", "v_ref[0, 1]", "c_dir[0, 1]", "c_ref[0, 1]", "rr", "zz", "pp", "tt", "az", "ze", "sh"])
-    
-    pd.plotting.scatter_matrix(df[:200], figsize = (60, 60), alpha = 0.6, diagonal = "hist")
+
+    if df.shape[0] > 200:
+        # plot only the first 200 events
+        pd.plotting.scatter_matrix(df[:200], figsize = (60, 60), alpha = 0.6, diagonal = "hist")
+    else:
+        pd.plotting.scatter_matrix(df, figsize = (60, 60), alpha = 0.6, diagonal = "hist")
     plt.savefig("./plots/nnRecon/scat_{}layers{}nodes{}epochs{}batch{}fold.pdf".format(layers, nodes, epochs, batch, fold))
     plt.clf()
     
@@ -467,9 +471,9 @@ for train, test in kfold.split(x, y):
     xStd = np.nanstd(x_train, axis = 0)
     xMin = np.nanmin(x_train, axis = 0)
     xMax = np.nanmax(x_train, axis = 0)
-    x_train = (x_train - xMean) / xStd
-    x_val = (x_val - xMean) / xStd
-    x_test = (x_test - xMean) / xStd
+    x_train = (x_train - xMean) / (xStd + K.epsilon())
+    x_val = (x_val - xMean) / (xStd + K.epsilon())
+    x_test = (x_test - xMean) / (xStd + K.epsilon())
     if Pred == "train":
         plotFeature(x_test, y_test)
     # select from the general x what features to use
