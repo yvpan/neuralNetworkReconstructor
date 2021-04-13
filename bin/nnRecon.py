@@ -30,7 +30,7 @@ def my_mspe(y_true, y_pred):
     # self defined mean squared percentage error
     y_pred = ops.convert_to_tensor(y_pred)
     y_true = math_ops.cast(y_true, y_pred.dtype)
-    diff = math_ops.square((y_true - y_pred) / K.maximum(math_ops.abs(y_true), K.epsilon()))
+    diff = math_ops.square((y_true - y_pred) / (math_ops.abs(y_true) + K.epsilon()))
     return K.mean(diff, axis = -1)
 
 def normalize(mat):
@@ -42,7 +42,7 @@ def normalize(mat):
     maximum = maximum.reshape((maximum.shape[0], 1))
     minimum = np.nanmin(mat, axis = 1)
     minimum = minimum.reshape((minimum.shape[0], 1))
-    deno = np.maximum(maximum - minimum, 1e-10)# avoid dividing by zero
+    deno = maximum - minimum + K.epsilon()# avoid dividing by zero
     mat = (mat - minimum) / deno
     return mat.reshape((mat.shape[0], nRow, nCol))
 
@@ -105,8 +105,12 @@ def plotFeature(x, y):
             "ze": y[:, 8],
             "sh": y[:, 12]}
     df = pd.DataFrame(data, columns = ["t_dir[1, 0]", "t_ref[1, 0]", "a_dir[1, 0]", "a_ref[1, 0]", "r_dir[1, 0]", "r_ref[1, 0]", "v_dir[1, 0]", "v_ref[1, 0]", "c_dir[1, 0]", "c_ref[1, 0]", "t_dir[2, 0]", "t_ref[2, 0]", "a_dir[2, 0]", "a_ref[2, 0]", "r_dir[2, 0]", "r_ref[2, 0]", "v_dir[2, 0]", "v_ref[2, 0]", "c_dir[2, 0]", "c_ref[2, 0]", "t_dir[0, 1]", "t_ref[0, 1]", "a_dir[0, 1]", "a_ref[0, 1]", "r_dir[0, 1]", "r_ref[0, 1]", "v_dir[0, 1]", "v_ref[0, 1]", "c_dir[0, 1]", "c_ref[0, 1]", "rr", "zz", "pp", "tt", "az", "ze", "sh"])
-    
-    pd.plotting.scatter_matrix(df[:200], figsize = (60, 60), alpha = 0.6, diagonal = "hist")
+
+    if df.shape[0] > 200:
+        # only plot the first 200 events
+        pd.plotting.scatter_matrix(df[:200], figsize = (60, 60), alpha = 0.6, diagonal = "hist")
+    else:
+        pd.plotting.scatter_matrix(df, figsize = (60, 60), alpha = 0.6, diagonal = "hist")
     plt.savefig("./plots/nnRecon/scat_{}layers{}nodes{}epochs{}batch{}fold.pdf".format(layers, nodes, epochs, batch, fold))
     plt.clf()
     
@@ -199,7 +203,7 @@ def plotImportance(model, x, y):
     if x.shape[3] == 3:
         ylabel = ["t_dir", "a_dir", "r_dir"]
     elif x.shape[3] == 4:
-        ylabel = ["t_dir", "t_ref", "r_dir", "r_ref"]
+        ylabel = ["t_dir", "t_ref", "a_dir", "a_ref"]
     elif x.shape[3] == 6:
         ylabel = ["t_dir", "t_ref", "a_dir", "a_ref", "r_dir", "r_ref"]
     plt.yticks(range(0, x.shape[1] * x.shape[2] * x.shape[3], x.shape[1] * x.shape[2]), ylabel, rotation = "vertical")
@@ -208,8 +212,8 @@ def plotImportance(model, x, y):
     plt.clf()
 
 numSplit = 10 # 10 fold cross validation bu default, 90% training, 5% validation, 5% test
-strNum = 4 # number of strings for a detector
-channelPerStr = 4 # number of antennas on each string
+strNum = 3 # number of strings for a detector
+channelPerStr = 3 # number of antennas on each string
 Energies = []
 fold = int(sys.argv[-1]) # the foldth fold as validation and test, unless doing cross validation, always use the 0th fold
 if fold > numSplit - 1:
@@ -227,7 +231,7 @@ if Pred not in ["train", "rr", "tt", "pp", "ze", "az", "sh"]:
 print("Modeling: {}".format(Pred))
 inFile = h5py.File(sys.argv[1], 'r') # start to read in files
 print("Reading " + str(sys.argv[1]))
-event_ids = np.array(inFile['event_ids']) + 1 * 10 ** 5
+event_ids = np.array(inFile['event_group_ids']) + 1 * 10 ** 5
 energies = np.array(inFile['energies'])
 if np.round(np.log10(inFile['energies'][0]), 1) not in Energies:
     Energies.append(np.round(np.log10(inFile['energies'][0]), 1))
@@ -239,8 +243,7 @@ inelasticity = np.array(inFile['inelasticity'])
 interaction_type = np.array(inFile['interaction_type'])
 azimuths = np.array(inFile['azimuths'])
 zeniths = np.array(inFile['zeniths'])
-SNRs = np.array(inFile['station_101']['SNRs'])
-max_amp_ray_solution = np.array(inFile['station_101']['max_amp_ray_solution'])
+max_amp_ray_solution = np.array(inFile['station_101']['max_amp_shower_and_ray'])
 ray_tracing_solution_type = np.array(inFile['station_101']['ray_tracing_solution_type'])
 travel_times = np.array(inFile['station_101']['travel_times'])
 travel_distances = np.array(inFile['station_101']['travel_distances'])
@@ -250,7 +253,7 @@ polarization = np.array(inFile['station_101']['polarization'])
 for i in range(2, len(sys.argv) - 6):
     inFile = h5py.File(sys.argv[i], 'r')
     print("Reading " + str(sys.argv[i]))
-    event_ids = np.append(event_ids, np.array(inFile['event_ids']) + ((i - 2) / 8 + 1) * 10**5)
+    event_ids = np.append(event_ids, np.array(inFile['event_group_ids']) + ((i - 2) / 8 + 1) * 10**5)
     energies = np.append(energies, np.array(inFile['energies']))
     if np.round(np.log10(inFile['energies'][0]), 1) not in Energies:
         Energies.append(np.round(np.log10(inFile['energies'][0]), 1))
@@ -262,14 +265,21 @@ for i in range(2, len(sys.argv) - 6):
     interaction_type = np.append(interaction_type, np.array(inFile['interaction_type']))
     azimuths = np.append(azimuths, np.array(inFile['azimuths']))
     zeniths = np.append(zeniths, np.array(inFile['zeniths']))
-    SNRs = np.append(SNRs, np.array(inFile['station_101']['SNRs']))
-    max_amp_ray_solution = np.append(max_amp_ray_solution, np.array(inFile['station_101']['max_amp_ray_solution']), axis = 0)
+    max_amp_ray_solution = np.append(max_amp_ray_solution, np.array(inFile['station_101']['max_amp_shower_and_ray']), axis = 0)
     ray_tracing_solution_type = np.append(ray_tracing_solution_type, np.array(inFile['station_101']['ray_tracing_solution_type']), axis = 0)
     travel_times = np.append(travel_times, np.array(inFile['station_101']['travel_times']), axis = 0)
     travel_distances = np.append(travel_distances, np.array(inFile['station_101']['travel_distances']), axis = 0)
     receive_vectors = np.append(receive_vectors, np.array(inFile['station_101']['receive_vectors']), axis = 0)
     launch_vectors = np.append(launch_vectors, np.array(inFile['station_101']['launch_vectors']), axis = 0)
     polarization = np.append(polarization, np.array(inFile['station_101']['polarization']), axis = 0)
+# select the antenna set
+max_amp_ray_solution = max_amp_ray_solution[:, 0:9, :]
+ray_tracing_solution_type = ray_tracing_solution_type[:, 0:9, :]
+travel_times = travel_times[:, 0:9, :]
+travel_distances = travel_distances[:, 0:9, :]
+receive_vectors = receive_vectors[:, 0:9, :, :]
+launch_vectors = launch_vectors[:, 0:9, :, :]
+polarization = polarization[:, 0:9, :, :]
 Energies.sort()
 evtNum = len(event_ids)
 interaction = np.zeros((evtNum, ), dtype = int)
@@ -379,6 +389,7 @@ vAmp_dir = np.where(Filter, vAmp[:, 0], vAmp[:, 1])
 vAmp_ref = np.where(Filter, vAmp[:, 1], vAmp[:, 0])
 vAmp_dir = vAmp_dir.reshape(int(vAmp_dir.shape[0] / channelPerStr / strNum), channelPerStr, strNum)
 vAmp_ref = vAmp_ref.reshape(int(vAmp_ref.shape[0] / channelPerStr / strNum), channelPerStr, strNum)
+'''
 # apply true sign to amp to calculate ratio
 max_amp_ray_solution_dir[:, 0:2, :] = max_amp_ray_solution_dir[:, 0:2, :] * np.sign(vAmp_dir[:, 0:2, :])
 max_amp_ray_solution_dir[:, 2:4, :] = max_amp_ray_solution_dir[:, 2:4, :] * np.sign(hAmp_dir[:, 2:4, :])
@@ -397,6 +408,10 @@ max_amp_ray_solution_dir[:, 0:2, :] = max_amp_ray_solution_dir[:, 0:2, :] * np.s
 max_amp_ray_solution_dir[:, 2:4, :] = max_amp_ray_solution_dir[:, 2:4, :] * np.sign(hAmp_dir[:, 2:4, :])
 max_amp_ray_solution_ref[:, 0:2, :] = max_amp_ray_solution_ref[:, 0:2, :] * np.sign(vAmp_ref[:, 0:2, :])
 max_amp_ray_solution_ref[:, 2:4, :] = max_amp_ray_solution_ref[:, 2:4, :] * np.sign(hAmp_ref[:, 2:4, :])
+'''
+# not use ratios so fill in zeros
+ratio_amp_dir = np.zeros(travel_times_dir.shape)
+ratio_amp_ref = np.zeros(travel_times_ref.shape)
 max_amp_ray_solution_dir = normalize(max_amp_ray_solution_dir)
 max_amp_ray_solution_ref = normalize(max_amp_ray_solution_ref)
 # reshape them to apply Filter
@@ -467,15 +482,22 @@ for train, test in kfold.split(x, y):
     xStd = np.nanstd(x_train, axis = 0)
     xMin = np.nanmin(x_train, axis = 0)
     xMax = np.nanmax(x_train, axis = 0)
-    x_train = (x_train - xMean) / xStd
-    x_val = (x_val - xMean) / xStd
-    x_test = (x_test - xMean) / xStd
+    x_train = (x_train - xMean) / (xStd + K.epsilon())
+    x_val = (x_val - xMean) / (xStd + K.epsilon())
+    x_test = (x_test - xMean) / (xStd + K.epsilon())
     if Pred == "train":
+        print(x_test[0])
+        print(y_test[0])
         plotFeature(x_test, y_test)
     # select from the general x what features to use
+    '''
     x_train = np.stack((x_train[:, :, :, 0], x_train[:, :, :, 1], x_train[:, :, :, 2], x_train[:, :, :, 3], x_train[:, :, :, 4], x_train[:, :, :, 5]), axis = -1)
     x_val = np.stack((x_val[:, :, :, 0], x_val[:, :, :, 1], x_val[:, :, :, 2], x_val[:, :, :, 3], x_val[:, :, :, 4], x_val[:, :, :, 5]), axis = -1)
     x_test = np.stack((x_test[:, :, :, 0], x_test[:, :, :, 1], x_test[:, :, :, 2], x_test[:, :, :, 3], x_test[:, :, :, 4], x_test[:, :, :, 5]), axis = -1)
+    '''
+    x_train = np.stack((x_train[:, :, :, 0], x_train[:, :, :, 1], x_train[:, :, :, 2], x_train[:, :, :, 3]), axis = -1)
+    x_val = np.stack((x_val[:, :, :, 0], x_val[:, :, :, 1], x_val[:, :, :, 2], x_val[:, :, :, 3]), axis = -1)
+    x_test = np.stack((x_test[:, :, :, 0], x_test[:, :, :, 1], x_test[:, :, :, 2], x_test[:, :, :, 3]), axis = -1)
     
     print("Setting up ...")
     inputs = Input(shape = (x_train.shape[1], x_train.shape[2], x_train.shape[3]))
