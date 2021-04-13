@@ -1,3 +1,3 @@
 #!/bin/sh
 
-python ./bin/nnRecon.py ./data/1e18.5_n1e5_ARA02_0.hdf5.XFDTD pp 5 16 200 64 0
+python ./bin/nnRecon.py ./data/tong_1e18.5_n1e6_1015_v121.part0000.hdf5_out.hdf5 pp 5 16 200 64 0
