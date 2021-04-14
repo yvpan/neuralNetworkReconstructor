@@ -401,6 +401,8 @@ max_amp_ray_solution_dir[:, 0:2, :] = max_amp_ray_solution_dir[:, 0:2, :] * np.s
 max_amp_ray_solution_dir[:, 2:4, :] = max_amp_ray_solution_dir[:, 2:4, :] * np.sign(hAmp_dir[:, 2:4, :])
 max_amp_ray_solution_ref[:, 0:2, :] = max_amp_ray_solution_ref[:, 0:2, :] * np.sign(vAmp_ref[:, 0:2, :])
 max_amp_ray_solution_ref[:, 2:4, :] = max_amp_ray_solution_ref[:, 2:4, :] * np.sign(hAmp_ref[:, 2:4, :])
+max_amp_ray_solution_dir = np.log10(1. + max_amp_ray_solution_dir)
+max_amp_ray_solution_ref = np.log10(1. + max_amp_ray_solution_ref)
 max_amp_ray_solution_dir = normalize(max_amp_ray_solution_dir)
 max_amp_ray_solution_ref = normalize(max_amp_ray_solution_ref)
 # reshape them to apply Filter
@@ -469,8 +471,6 @@ for train, test in kfold.split(x, y):
     # normalize features
     xMean = np.nanmean(x_train, axis = 0)
     xStd = np.nanstd(x_train, axis = 0)
-    xMin = np.nanmin(x_train, axis = 0)
-    xMax = np.nanmax(x_train, axis = 0)
     x_train = (x_train - xMean) / (xStd + K.epsilon())
     x_val = (x_val - xMean) / (xStd + K.epsilon())
     x_test = (x_test - xMean) / (xStd + K.epsilon())
