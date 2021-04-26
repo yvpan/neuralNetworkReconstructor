@@ -1,5 +1,5 @@
 pip install --user matplotlib
-pip install --user scipy
+pip install --user scipy==1.4.1
 pip install --user scikit-learn
 pip install --user pandas
 pip install --user seaborn
