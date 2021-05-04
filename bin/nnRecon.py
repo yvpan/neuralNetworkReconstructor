@@ -496,6 +496,10 @@ for train, test in kfold.split(x, y):
     x_train = np.stack((x_train[:, :, :, 0], x_train[:, :, :, 1], x_train[:, :, :, 2], x_train[:, :, :, 3]), axis = -1)
     x_val = np.stack((x_val[:, :, :, 0], x_val[:, :, :, 1], x_val[:, :, :, 2], x_val[:, :, :, 3]), axis = -1)
     x_test = np.stack((x_test[:, :, :, 0], x_test[:, :, :, 1], x_test[:, :, :, 2], x_test[:, :, :, 3]), axis = -1)
+    # wrap around string dimension to consider azimuthal continuity
+    x_train = np.pad(x_train, ((0, 0), (0, 0), (1, 1), (0, 0)), "wrap")
+    x_val = np.pad(x_val, ((0, 0), (0, 0), (1, 1), (0, 0)), "wrap")
+    x_test = np.pad(x_test, ((0, 0), (0, 0), (1, 1), (0, 0)), "wrap")
     
     print("Setting up ...")
     inputs = Input(shape = (x_train.shape[1], x_train.shape[2], x_train.shape[3]))
