@@ -8,9 +8,11 @@ To run the script in ./bin:
 `python ./bin/visualize_sim_output.py $OUTLIST`, e.g. `python ./bin/visualize_sim_output.py ./data/1e18.5_n1e5_ARA02_0.hdf5.XFDTD`.
 `$OUTLIST` is a list of NuRadioMC output files.
 
-`python ./bin/nnRecon.py $OUTLIST $LABEL $PARA`, e.g. `python ./bin/nnRecon.py ./data/*_ARA02_*.hdf5 train 5 16 200 64`.
-`$OUTLIST` is a list of NuRadioMC output files.
-`$PARA` in a sequence of # of layers, nodes, epochs, batch size, fold number.
+`python ./bin/nnRecon.py $TESTLIST $TRAINLIST $OUTDIR $LABEL $PARA`, e.g. `python ./bin/nnRecon.py ./data/*_ARA02_*.hdf5 train 5 16 200 64`.
+`$TESTLIST` is a list of NuRadioMC output files for test, change `testFile` in ./bin/nnRecon.py to use the first `testFile` files as test set.
+`$TRAINLIST` is a list of NuRadioMC output files for train.
+`$OUTDIR` is the output directory.
+`$PARA` in a sequence of read mode, # of layers, nodes, epochs, batch size, fold number, amplitude noise factor, timing noise factor.
 `$LABEL` in {"train", "rr", "tt", "pp", "ze", "az"}.
 
 
